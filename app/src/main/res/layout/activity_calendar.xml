@@ -1,0 +1,16 @@
+<cvnhan.android.calendarsample.calendar.Calendar
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chart"
+    android:padding="@dimen/chart_padding"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:cal_labelSeparation="10dp"
+    app:cal_labelTextSize="14sp"
+    app:cal_labelTextColor="#d000"
+    app:cal_axisThickness="2dp"
+    app:cal_axisColor="#d000"
+    app:cal_gridThickness="1dp"
+    app:cal_gridColor="#2000"
+    app:cal_dataColor="#a6c"
+    app:cal_dataThickness="8dp" />
