@@ -1,0 +1,16 @@
+<cvnhan.android.calendarsample.interactivechart.InteractiveLineGraphView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chart"
+    android:padding="@dimen/chart_padding"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:labelSeparation="10dp"
+    app:labelTextSize="14sp"
+    app:labelTextColor="#d000"
+    app:axisThickness="2dp"
+    app:axisColor="#d000"
+    app:gridThickness="1dp"
+    app:gridColor="#2000"
+    app:dataColor="#a6c"
+    app:dataThickness="8dp" />
