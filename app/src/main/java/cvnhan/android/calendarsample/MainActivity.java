@@ -1,36 +1,55 @@
 package cvnhan.android.calendarsample;
 
-import android.support.v7.app.ActionBarActivity;
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import cvnhan.android.calendarsample.interactivechart.InteractiveLineGraphView;
 
-public class MainActivity extends ActionBarActivity {
 
-    @Override
+public class MainActivity  extends Activity {
+    private InteractiveLineGraphView mGraphView;
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mGraphView = (InteractiveLineGraphView) findViewById(R.id.chart);
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+        super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+        switch (item.getItemId()) {
+            case R.id.action_zoom_in:
+                mGraphView.zoomIn();
+                return true;
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+            case R.id.action_zoom_out:
+                mGraphView.zoomOut();
+                return true;
+
+            case R.id.action_pan_left:
+                mGraphView.panLeft();
+                return true;
+
+            case R.id.action_pan_right:
+                mGraphView.panRight();
+                return true;
+
+            case R.id.action_pan_up:
+                mGraphView.panUp();
+                return true;
+
+            case R.id.action_pan_down:
+                mGraphView.panDown();
+                return true;
         }
 
         return super.onOptionsItemSelected(item);
