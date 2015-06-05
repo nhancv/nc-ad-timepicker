@@ -31,36 +31,6 @@ import cvnhan.android.calendarsample.interactivechart.Zoomer;
  * Created by cvnhan on 04-Jun-15.
  */
 
-/**
- * A view representing a simple yet interactive line chart for the function <code>x^3 - x/4</code>.
- * <p>
- * This view isn't all that useful on its own; rather it serves as an example of how to correctly
- * implement these types of gestures to perform zooming and scrolling with interesting content
- * types.
- * <p>
- * The view is interactive in that it can be zoomed and panned using
- * typical <a href="http://developer.android.com/design/patterns/gestures.html">gestures</a> such
- * as double-touch, drag, pinch-open, and pinch-close. This is done using the
- * {@link ScaleGestureDetector}, {@link GestureDetector}, and {@link OverScroller} classes. Note
- * that the platform-provided view scrolling behavior (e.g. {@link View#scrollBy(int, int)} is NOT
- * used.
- * <p>
- * The view also demonstrates the correct use of
- * <a href="http://developer.android.com/design/style/touch-feedback.html">touch feedback</a> to
- * indicate to users that they've reached the content edges after a pan or fling gesture. This
- * is done using the {@link EdgeEffectCompat} class.
- * <p>
- * Finally, this class demonstrates the basics of creating a custom view, including support for
- * custom attributes (see the constructors), a simple implementation for
- * {@link #onMeasure(int, int)}, an implementation for {@link #onSaveInstanceState()} and a fairly
- * straightforward {@link Canvas}-based rendering implementation in
- * {@link #onDraw(android.graphics.Canvas)}.
- * <p>
- * Note that this view doesn't automatically support directional navigation or other accessibility
- * methods. Activities using this view should generally provide alternate navigation controls.
- * Activities using this view should also present an alternate, text-based representation of this
- * view's content for vision-impaired users.
- */
 public class Calendar extends View {
     private static final String TAG = "Calendar";
 
@@ -97,7 +67,7 @@ public class Calendar extends View {
      * The current viewport. This rectangle represents the currently visible chart domain
      * and range. The currently visible chart X values are from this rectangle's left to its right.
      * The currently visible chart Y values are from this rectangle's top to its bottom.
-     * <p>
+     * <p/>
      * Note that this rectangle's top is actually the smaller Y value, and its bottom is the larger
      * Y value. Since the chart is drawn onscreen in such a way that chart Y values increase
      * towards the top of the screen (decreasing pixel Y positions), this rectangle's "top" is drawn
@@ -167,6 +137,7 @@ public class Calendar extends View {
 
     /**
      * The simple math function Y = fun(X) to draw on the chart.
+     *
      * @param x The X value
      * @return The Y value
      */
@@ -239,7 +210,7 @@ public class Calendar extends View {
         mLabelTextPaint.setTextSize(mLabelTextSize);
         mLabelTextPaint.setColor(mLabelTextColor);
         mLabelHeight = (int) Math.abs(mLabelTextPaint.getFontMetrics().top);
-        mMaxLabelWidth = (int) mLabelTextPaint.measureText("0000");
+        mMaxLabelWidth = (int) mLabelTextPaint.measureText("00:00");
 
         mGridPaint = new Paint();
         mGridPaint.setStrokeWidth(mGridThickness);
@@ -315,16 +286,15 @@ public class Calendar extends View {
     private void drawAxes(Canvas canvas) {
         // Computes axis stops (in terms of numerical value and position on screen)
         int i;
-
         computeAxisStops(
                 mCurrentViewport.left,
                 mCurrentViewport.right,
-                mContentRect.width() / mMaxLabelWidth / 2,
+                0,
                 mXStopsBuffer);
         computeAxisStops(
                 mCurrentViewport.top,
                 mCurrentViewport.bottom,
-                mContentRect.height() / mLabelHeight / 2,
+                15,
                 mYStopsBuffer);
 
         // Avoid unnecessary allocations during drawing. Re-use allocated
@@ -367,31 +337,35 @@ public class Calendar extends View {
         }
         canvas.drawLines(mAxisYLinesBuffer, 0, mYStopsBuffer.numStops * 4, mGridPaint);
 
-        // Draws X labels
-        int labelOffset;
-        int labelLength;
-        mLabelTextPaint.setTextAlign(Paint.Align.CENTER);
-        for (i = 0; i < mXStopsBuffer.numStops; i++) {
-            // Do not use String.format in high-performance code such as onDraw code.
-            labelLength = formatFloat(mLabelBuffer, mXStopsBuffer.stops[i], mXStopsBuffer.decimals);
-            labelOffset = mLabelBuffer.length - labelLength;
-            canvas.drawText(
-                    mLabelBuffer, labelOffset, labelLength,
-                    mAxisXPositionsBuffer[i],
-                    mContentRect.bottom + mLabelHeight + mLabelSeparation,
-                    mLabelTextPaint);
-        }
+//        // Draws X labels
+//        int labelOffset;
+//        int labelLength;
+//        mLabelTextPaint.setTextAlign(Paint.Align.CENTER);
+//        for (i = 0; i < mXStopsBuffer.numStops; i++) {
+//            // Do not use String.format in high-performance code such as onDraw code.
+//            labelLength = formatFloat(mLabelBuffer, mXStopsBuffer.stops[i], mXStopsBuffer.decimals);
+//            labelOffset = mLabelBuffer.length - labelLength;
+//            canvas.drawText(
+//                    mLabelBuffer, labelOffset, labelLength,
+//                    mAxisXPositionsBuffer[i],
+//                    mContentRect.bottom + mLabelHeight + mLabelSeparation,
+//                    mLabelTextPaint);
+//        }
 
         // Draws Y labels
         mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
         for (i = 0; i < mYStopsBuffer.numStops; i++) {
             // Do not use String.format in high-performance code such as onDraw code.
-            labelLength = formatFloat(mLabelBuffer, mYStopsBuffer.stops[i], mYStopsBuffer.decimals);
-            labelOffset = mLabelBuffer.length - labelLength;
-            canvas.drawText(
-                    mLabelBuffer, labelOffset, labelLength,
+//            labelLength = formatFloat(mLabelBuffer, mYStopsBuffer.stops[i], mYStopsBuffer.decimals);
+//            labelOffset = mLabelBuffer.length - labelLength;
+//            canvas.drawText(
+//                    mLabelBuffer, labelOffset, labelLength,
+//                    mContentRect.left - mLabelSeparation,
+//                    mAxisYPositionsBuffer[i] + mLabelHeight / 2,
+//                    mLabelTextPaint);
+            canvas.drawText(AxisStops.getHHMM(mYStopsBuffer.minutes[i]),
                     mContentRect.left - mLabelSeparation,
-                    mAxisYPositionsBuffer[i] + mLabelHeight / 2,
+                    mAxisYPositionsBuffer[i],
                     mLabelTextPaint);
         }
     }
@@ -452,12 +426,13 @@ public class Calendar extends View {
      * Computes the set of axis labels to show given start and stop boundaries and an ideal number
      * of stops between these boundaries.
      *
-     * @param start The minimum extreme (e.g. the left edge) for the axis.
-     * @param stop The maximum extreme (e.g. the right edge) for the axis.
-     * @param steps The ideal number of stops to create. This should be based on available screen
-     *              space; the more space there is, the more stops should be shown.
+     * @param start    The minimum extreme (e.g. the left edge) for the axis.
+     * @param stop     The maximum extreme (e.g. the right edge) for the axis.
+     * @param steps    The ideal number of stops to create. This should be based on available screen
+     *                 space; the more space there is, the more stops should be shown.
      * @param outStops The destination {@link AxisStops} object to populate.
      */
+
     private static void computeAxisStops(float start, float stop, int steps, AxisStops outStops) {
         double range = stop - start;
         if (steps == 0 || range <= 0) {
@@ -468,16 +443,11 @@ public class Calendar extends View {
 
         double rawInterval = range / steps;
         double interval = roundToOneSignificantFigure(rawInterval);
-        double intervalMagnitude = Math.pow(10, (int) Math.log10(interval));
-        int intervalSigDigit = (int) (interval / intervalMagnitude);
-        if (intervalSigDigit > 5) {
-            // Use one order of magnitude higher, to avoid intervals like 0.9 or 90
-            interval = Math.floor(10 * intervalMagnitude);
-        }
 
         double first = Math.ceil(start / interval) * interval;
         double last = Math.nextUp(Math.floor(stop / interval) * interval);
 
+//        Log.e(TAG, start + " " + stop + " " + rawInterval + " " + steps + " " + interval+" "+first+" "+last);
         double f;
         int i;
         int n = 0;
@@ -490,17 +460,24 @@ public class Calendar extends View {
         if (outStops.stops.length < n) {
             // Ensure stops contains at least numStops elements.
             outStops.stops = new float[n];
+            outStops.minutes = new int[n];
         }
 
         for (f = first, i = 0; i < n; f += interval, ++i) {
             outStops.stops[i] = (float) f;
-        }
+            if (i == 0)
+                outStops.minutes[i] = 870;
+            else
+                outStops.minutes[i] = outStops.minutes[i - 1] + 30;
 
+        }
         if (interval < 1) {
             outStops.decimals = (int) Math.ceil(-Math.log10(interval));
         } else {
             outStops.decimals = 0;
         }
+
+
     }
 
     /**
@@ -516,9 +493,9 @@ public class Calendar extends View {
      * Computes the pixel offset for the given Y chart value. This may be outside the view bounds.
      */
     private float getDrawY(float y) {
-        return mContentRect.bottom
-                - mContentRect.height()
-                * (y - mCurrentViewport.top) / mCurrentViewport.height();
+        return mContentRect.top
+                + mContentRect.height()
+                * ((y - mCurrentViewport.top) / mCurrentViewport.height());
     }
 
     /**
@@ -1141,7 +1118,7 @@ public class Calendar extends View {
 
         @Override
         public String toString() {
-            return "InteractiveLineGraphView.SavedState{"
+            return "Calendar.SavedState{"
                     + Integer.toHexString(System.identityHashCode(this))
                     + " viewport=" + viewport.toString() + "}";
         }
@@ -1172,7 +1149,12 @@ public class Calendar extends View {
      */
     private static class AxisStops {
         float[] stops = new float[]{};
+        int[] minutes = new int[]{};
         int numStops;
         int decimals;
+
+        public static String getHHMM(int minutes) {
+            return String.format("%02d:%02d", minutes / 60, minutes % 60);
+        }
     }
 }
