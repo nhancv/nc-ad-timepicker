@@ -227,6 +227,8 @@ public class Calendar extends View {
         mDataPaint.setColor(mDataColor);
         mDataPaint.setStyle(Paint.Style.STROKE);
         mDataPaint.setAntiAlias(true);
+
+        initAxisStops();
     }
 
     @Override
@@ -237,6 +239,7 @@ public class Calendar extends View {
                 getPaddingTop(),
                 getWidth() - getPaddingRight(),
                 getHeight() - getPaddingBottom() - mLabelHeight - mLabelSeparation);
+        initAxisStops();
     }
 
     @Override
@@ -279,13 +282,9 @@ public class Calendar extends View {
         // Draws chart container
         canvas.drawRect(mContentRect, mAxisPaint);
     }
-
-    /**
-     * Draws the chart axes and labels onto the canvas.
-     */
-    private void drawAxes(Canvas canvas) {
-        // Computes axis stops (in terms of numerical value and position on screen)
-        int i;
+    public int cellHeightObj=80;
+    public void initAxisStops() {
+        maxDelta = (cellHeightObj * density)/mContentRect.height();
         computeAxisStops(
                 mCurrentViewport.left,
                 mCurrentViewport.right,
@@ -294,8 +293,20 @@ public class Calendar extends View {
         computeAxisStops(
                 mCurrentViewport.top,
                 mCurrentViewport.bottom,
-                15,
+                50,
                 mYStopsBuffer);
+
+    }
+
+    public float density = getResources().getDisplayMetrics().density;
+    public static double minDelta=1, maxDelta=1;
+
+    /**
+     * Draws the chart axes and labels onto the canvas.
+     */
+    private void drawAxes(Canvas canvas) {
+        // Computes axis stops (in terms of numerical value and position on screen)
+        int i;
 
         // Avoid unnecessary allocations during drawing. Re-use allocated
         // arrays and only reallocate if the number of stops grows.
@@ -335,11 +346,11 @@ public class Calendar extends View {
             mAxisYLinesBuffer[i * 4 + 2] = mContentRect.right;
             mAxisYLinesBuffer[i * 4 + 3] = (float) Math.floor(mAxisYPositionsBuffer[i]);
         }
-        canvas.drawLines(mAxisYLinesBuffer, 0, mYStopsBuffer.numStops * 4, mGridPaint);
+//        canvas.drawLines(mAxisYLinesBuffer, 0, mYStopsBuffer.numStops * 4, mGridPaint);
 
 //        // Draws X labels
-//        int labelOffset;
-//        int labelLength;
+        int labelOffset;
+        int labelLength;
 //        mLabelTextPaint.setTextAlign(Paint.Align.CENTER);
 //        for (i = 0; i < mXStopsBuffer.numStops; i++) {
 //            // Do not use String.format in high-performance code such as onDraw code.
@@ -354,8 +365,9 @@ public class Calendar extends View {
 
         // Draws Y labels
         mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
-        for (i = 0; i < mYStopsBuffer.numStops; i++) {
-            // Do not use String.format in high-performance code such as onDraw code.
+        if (mCurrentViewport.height() <= 2) {
+            for (i = 0; i < mYStopsBuffer.numStops; i += 4) {
+                // Do not use String.format in high-performance code such as onDraw code.
 //            labelLength = formatFloat(mLabelBuffer, mYStopsBuffer.stops[i], mYStopsBuffer.decimals);
 //            labelOffset = mLabelBuffer.length - labelLength;
 //            canvas.drawText(
@@ -363,11 +375,33 @@ public class Calendar extends View {
 //                    mContentRect.left - mLabelSeparation,
 //                    mAxisYPositionsBuffer[i] + mLabelHeight / 2,
 //                    mLabelTextPaint);
-            canvas.drawText(AxisStops.getHHMM(mYStopsBuffer.minutes[i]),
-                    mContentRect.left - mLabelSeparation,
-                    mAxisYPositionsBuffer[i],
-                    mLabelTextPaint);
+                canvas.drawText(AxisStops.getHHMM(mYStopsBuffer.minutes[i]),
+                        mContentRect.left - mLabelSeparation,
+                        mAxisYPositionsBuffer[i],
+                        mLabelTextPaint);
+                canvas.drawLine(mAxisYLinesBuffer[i * 4 + 0], mAxisYLinesBuffer[i * 4 + 1], mAxisYLinesBuffer[i * 4 + 2], mAxisYLinesBuffer[i * 4 + 3], mGridPaint);
+            }
         }
+        if (mCurrentViewport.height() <= 1) {
+            for (i = 2; i < mYStopsBuffer.numStops; i += 4) {
+                canvas.drawText(AxisStops.getHHMM(mYStopsBuffer.minutes[i]),
+                        mContentRect.left - mLabelSeparation,
+                        mAxisYPositionsBuffer[i],
+                        mLabelTextPaint);
+                canvas.drawLine(mAxisYLinesBuffer[i * 4 + 0], mAxisYLinesBuffer[i * 4 + 1], mAxisYLinesBuffer[i * 4 + 2], mAxisYLinesBuffer[i * 4 + 3], mGridPaint);
+            }
+        }
+        if (mCurrentViewport.height() <= 0.7) {
+            for (i = 1; i < mYStopsBuffer.numStops; i += 2) {
+
+                canvas.drawText(AxisStops.getHHMM(mYStopsBuffer.minutes[i]),
+                        mContentRect.left - mLabelSeparation,
+                        mAxisYPositionsBuffer[i],
+                        mLabelTextPaint);
+                canvas.drawLine(mAxisYLinesBuffer[i * 4 + 0], mAxisYLinesBuffer[i * 4 + 1], mAxisYLinesBuffer[i * 4 + 2], mAxisYLinesBuffer[i * 4 + 3], mGridPaint);
+            }
+        }
+//        Log.e(TAG, mCurrentViewport.bottom + " " + mCurrentViewport.height() + " " + mContentRect.height() + " " + mContentRect.width() + " " + mContentRect.bottom);
     }
 
     /**
@@ -447,7 +481,8 @@ public class Calendar extends View {
         double first = Math.ceil(start / interval) * interval;
         double last = Math.nextUp(Math.floor(stop / interval) * interval);
 
-//        Log.e(TAG, start + " " + stop + " " + rawInterval + " " + steps + " " + interval+" "+first+" "+last);
+        minDelta = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
+        maxDelta = Math.max(minDelta, maxDelta);
         double f;
         int i;
         int n = 0;
@@ -466,9 +501,9 @@ public class Calendar extends View {
         for (f = first, i = 0; i < n; f += interval, ++i) {
             outStops.stops[i] = (float) f;
             if (i == 0)
-                outStops.minutes[i] = 870;
+                outStops.minutes[i] = 1020;
             else
-                outStops.minutes[i] = outStops.minutes[i - 1] + 30;
+                outStops.minutes[i] = outStops.minutes[i - 1] - 15;
 
         }
         if (interval < 1) {
@@ -493,8 +528,8 @@ public class Calendar extends View {
      * Computes the pixel offset for the given Y chart value. This may be outside the view bounds.
      */
     private float getDrawY(float y) {
-        return mContentRect.top
-                + mContentRect.height()
+        return mContentRect.bottom
+                - mContentRect.height()
                 * ((y - mCurrentViewport.top) / mCurrentViewport.height());
     }
 
@@ -646,20 +681,17 @@ public class Calendar extends View {
             float focusY = scaleGestureDetector.getFocusY();
             hitTest(focusX, focusY, viewportFocus);
 
-            mCurrentViewport.set(
-                    viewportFocus.x
-                            - newWidth * (focusX - mContentRect.left)
-                            / mContentRect.width(),
-                    viewportFocus.y
-                            - newHeight * (mContentRect.bottom - focusY)
-                            / mContentRect.height(),
-                    0,
-                    0);
-            mCurrentViewport.right = mCurrentViewport.left + newWidth;
-            mCurrentViewport.bottom = mCurrentViewport.top + newHeight;
+            float viewportLeft = viewportFocus.x - newWidth * (focusX - mContentRect.left) / mContentRect.width();
+            float viewportTop = viewportFocus.y - newHeight * (mContentRect.bottom - focusY) / mContentRect.height();
+            float viewportRight = viewportLeft + newWidth;
+            float viewportBottom = viewportTop + newHeight;
+            if ((minDelta *((AXIS_Y_MAX-AXIS_Y_MIN)/(viewportBottom-viewportTop))) <= maxDelta) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
+//            if ((viewportBottom - viewportTop) > 0.5) { // neu viewport height duoc scale 4 lan thi khong cho phong to nua
+                mCurrentViewport.set(viewportLeft, viewportTop, viewportRight, viewportBottom);
+            }
+
             constrainViewport();
             ViewCompat.postInvalidateOnAnimation(Calendar.this);
-
             lastSpanX = spanX;
             lastSpanY = spanY;
             return true;
