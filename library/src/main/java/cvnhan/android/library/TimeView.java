@@ -459,13 +459,8 @@ public class TimeView extends View {
         }
         double f;
         int i;
-        int n = 0;
-        for (f = first; f <= last; f += interval) {
-            ++n;
-        }
-        outStops.numBlocks = n;
-        outStops.axisLength = n + 1;
-        Log.e(TAG, outStops.numBlocks + " " +(n+1));
+        outStops.numBlocks = steps;
+        outStops.axisLength = steps + 1;
         if (outStops.stops.length < outStops.axisLength) {
             // Ensure stops contains at least numStops elements.
             outStops.stops = new float[outStops.axisLength];
@@ -474,7 +469,6 @@ public class TimeView extends View {
 
         for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
             outStops.stops[i] = (float) f;
-            if(isYAxis==false) Log.e(TAG, f+"");
             if (i == 0)
                 outStops.minutes[i] = 1020;
             else

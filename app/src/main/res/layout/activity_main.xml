@@ -5,7 +5,7 @@
     android:padding="@dimen/chart_padding"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:labelHeaderColSeparation="1dp"
+    app:labelHeaderColSeparation="5dp"
     app:labelHeaderColTextSize="12sp"
     app:labelHeaderColTextColor="#d000"
     app:labelHeaderRowSeparation="5dp"
