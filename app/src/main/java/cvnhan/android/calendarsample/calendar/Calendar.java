@@ -87,7 +87,7 @@ public class Calendar extends View {
     private static float cellMaxWidth = 90;
     private static float cellMaxHeight = 80;
 
-    private static int numColum = 5;
+    private static int numColum = 10;
     private static int numRow = 50;
     private static boolean hasHeaderRow = true;
     private static boolean hasHeaderColum = true;
@@ -146,8 +146,6 @@ public class Calendar extends View {
     private int mLabelHeight;
     private Paint mObjPaint;
 
-    public int cellHeightObj = 80;
-
     // State objects and values related to gesture tracking.
     private ScaleGestureDetector mScaleGestureDetector;
     private GestureDetectorCompat mGestureDetector;
@@ -202,8 +200,17 @@ public class Calendar extends View {
 
             labelHeaderColTextColor = a.getColor(
                     R.styleable.Calendar_cal_labelTextColor, mLabelTextColor);
+            labelHeaderColTextSize = a.getDimension(
+                    R.styleable.Calendar_cal_labelTextSize, mLabelTextSize);
+            labelHeaderColSeparation = a.getDimensionPixelSize(
+                    R.styleable.Calendar_cal_labelSeparation, mLabelSeparation);
+
             labelHeaderRowTextColor = a.getColor(
                     R.styleable.Calendar_cal_labelTextColor, mLabelTextColor);
+            labelHeaderRowTextSize = a.getDimension(
+                    R.styleable.Calendar_cal_labelTextSize, mLabelTextSize);
+            labelHeaderRowSeparation = a.getDimensionPixelSize(
+                    R.styleable.Calendar_cal_labelSeparation, mLabelSeparation);
         } finally {
             a.recycle();
         }
@@ -321,34 +328,34 @@ public class Calendar extends View {
 
     private void computeAxis() {
         int i;
-        if (axisXPositionsBuffer.length < xStopsBuffer.numStops) {
-            axisXPositionsBuffer = new float[xStopsBuffer.numStops];
+        if (axisXPositionsBuffer.length < xStopsBuffer.axisLength) {
+            axisXPositionsBuffer = new float[xStopsBuffer.axisLength];
         }
-        if (axisYPositionsBuffer.length < yStopsBuffer.numStops) {
-            axisYPositionsBuffer = new float[yStopsBuffer.numStops];
+        if (axisYPositionsBuffer.length < yStopsBuffer.axisLength) {
+            axisYPositionsBuffer = new float[yStopsBuffer.axisLength];
         }
-        if (axisXLinesBuffer.length < xStopsBuffer.numStops * 4) {
-            axisXLinesBuffer = new float[xStopsBuffer.numStops * 4];
+        if (axisXLinesBuffer.length < xStopsBuffer.axisLength * 4) {
+            axisXLinesBuffer = new float[xStopsBuffer.axisLength * 4];
         }
-        if (axisYLinesBuffer.length < yStopsBuffer.numStops * 4) {
-            axisYLinesBuffer = new float[yStopsBuffer.numStops * 4];
+        if (axisYLinesBuffer.length < yStopsBuffer.axisLength * 4) {
+            axisYLinesBuffer = new float[yStopsBuffer.axisLength * 4];
         }
 
         // Compute positions
-        for (i = 0; i < xStopsBuffer.numStops; i++) {
+        for (i = 0; i < xStopsBuffer.axisLength; i++) {
             axisXPositionsBuffer[i] = getDrawX(xStopsBuffer.stops[i]);
         }
-        for (i = 0; i < yStopsBuffer.numStops; i++) {
+        for (i = 0; i < yStopsBuffer.axisLength; i++) {
             axisYPositionsBuffer[i] = getDrawY(yStopsBuffer.stops[i]);
         }
 
-        for (i = 0; i < xStopsBuffer.numStops; i++) {
+        for (i = 0; i < xStopsBuffer.axisLength; i++) {
             axisXLinesBuffer[i * 4 + 0] = (float) Math.floor(axisXPositionsBuffer[i]);
             axisXLinesBuffer[i * 4 + 1] = mContentRect.top;
             axisXLinesBuffer[i * 4 + 2] = (float) Math.floor(axisXPositionsBuffer[i]);
             axisXLinesBuffer[i * 4 + 3] = mContentRect.bottom;
         }
-        for (i = 0; i < yStopsBuffer.numStops; i++) {
+        for (i = 0; i < yStopsBuffer.axisLength; i++) {
             axisYLinesBuffer[i * 4 + 0] = mContentRect.left;
             axisYLinesBuffer[i * 4 + 1] = (float) Math.floor(axisYPositionsBuffer[i]);
             axisYLinesBuffer[i * 4 + 2] = mContentRect.right;
@@ -361,59 +368,61 @@ public class Calendar extends View {
         canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
         int i;
         // Draws X labels
-        mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
-        for (i = 0; i < xStopsBuffer.numStops; i++) {
+        mLabelTextPaint.setTextAlign(Paint.Align.LEFT);
+        for (i = 0; i < xStopsBuffer.axisLength; i++) {
             canvas.drawText(
                     AxisStops.getHHMM(xStopsBuffer.minutes[i]),
-                    axisXPositionsBuffer[i],
+                    (i < xStopsBuffer.axisLength - 1) ? axisXPositionsBuffer[i] : (axisXPositionsBuffer[i] - maxLabelHeaderRowWidth),
                     mContentRect.top - labelHeaderRowHeight - labelHeaderRowSeparation,
                     headerRowPaint);
         }
         canvas.restoreToCount(clipRestoreCount);
+
+        // Draws Y labels
         clipRestoreCount = canvas.save();
         canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
-        // Draws Y labels
         mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
         if (mCurrentViewport.height() <= 2) {
-            for (i = 0; i < yStopsBuffer.numStops; i += 4) {
-                canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
-                        mContentRect.left - labelHeaderColSeparation - mMaxLabelWidth,
-                        axisYPositionsBuffer[i],
-                        headerColPaint);
+            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
+                drawTextY(canvas, i);
             }
         }
         if (mCurrentViewport.height() <= 1) {
-            for (i = 2; i < yStopsBuffer.numStops; i += 4) {
-                canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
-                        mContentRect.left - labelHeaderColSeparation - mMaxLabelWidth,
-                        axisYPositionsBuffer[i],
-                        headerColPaint);
+            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
+                drawTextY(canvas, i);
             }
         }
-        if (mCurrentViewport.height() <= 0.7) {
-            for (i = 1; i < yStopsBuffer.numStops; i += 2) {
-                canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
-                        mContentRect.left - labelHeaderColSeparation - mMaxLabelWidth,
-                        axisYPositionsBuffer[i],
-                        headerColPaint);
+        if (mCurrentViewport.height() <= 0.6) {
+            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
+                drawTextY(canvas, i);
             }
         }
         canvas.restoreToCount(clipRestoreCount);
     }
+
+    private void drawTextY(Canvas canvas, int i) {
+        canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
+                mContentRect.left - labelHeaderColSeparation - maxLabelHeaderColWidth,
+                (i < yStopsBuffer.axisLength - 1) ? axisYPositionsBuffer[i] : (axisYPositionsBuffer[i] + labelHeaderColHeight),
+                headerColPaint);
+    }
+
     /**
      * ADAPTOR define
      */
+//    (AXIS_X_MAX - mCurrentViewport.right) - (mCurrentViewport.left - AXIS_X_MIN) -
     //viewport to contentRect
     private float getAxisx(float eventX) {
-        return (mCurrentViewport.left - AXIS_X_MIN) -  (AXIS_X_MAX - mCurrentViewport.right) + mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
+        return mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
     }
 
     private float getAxisy(float eventY) {
+        //do toa do viewport bottom tuong ung voi contentRect top nen phai cong them 1 khoang delta
         return (AXIS_Y_MAX - mCurrentViewport.bottom) - (mCurrentViewport.top - AXIS_Y_MIN) + mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
     }
 
     public int getIndexy(float y) {
-        for (int i = 0; i < yStopsBuffer.numStops - 1; i++) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
             if (y >= yStopsBuffer.stops[i] && y < yStopsBuffer.stops[i + 1]) {
                 return i;
             }
@@ -421,12 +430,12 @@ public class Calendar extends View {
         return -1;
     }
 
-    public int getIndexyByEventY(float eventY) {
+    public int getIndexyByEventY(final float eventY) {
         return getIndexy(getAxisy(eventY));
     }
 
     public int getIndexx(float x) {
-        for (int i = 0; i < xStopsBuffer.numStops - 1; i++) {
+        for (int i = 0; i < xStopsBuffer.axisLength - 1; i++) {
             if (x >= xStopsBuffer.stops[i] && x < xStopsBuffer.stops[i + 1]) {
                 return i;
             }
@@ -439,23 +448,22 @@ public class Calendar extends View {
     }
 
     public void drawObjectbyCell(int row, int col) {
-        if(row ==-1 || col ==-1) return;
-//        int clipRestoreCount = canvas.save();
-//        canvas.clipRect(mContentRect);
+        if (row == -1 || col == -1) return;
         float left = getDrawX(xStopsBuffer.stops[col]);
-        float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.numStops - row - 1]);
-        canvas.drawRect(left, top, left+getBlockWidth(), top + getBlockHeight(), mObjPaint);
-//        canvas.restoreToCount(clipRestoreCount);
+        float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.axisLength - row - 1]);
+        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), mObjPaint);
     }
+
     public void drawObjectbyEvent(float eventX, float eventY) {
-        int row= getIndexyByEventY(eventY);
-        int col= getIndexxByEventX(eventX);
-        Log.e(TAG, "row="+row+" col="+col+ " eventX="+eventX+" eventY="+eventY);
+        int row = getIndexyByEventY(eventY);
+        int col = getIndexxByEventX(eventX);
+        Log.e(TAG, "row=" + row + " col=" + col + " eventX=" + eventX + " eventY=" + eventY);
         drawObjectbyCell(row, col);
 
     }
+
     public int getIndexinYStopsArr(float y) {
-        for (int i = 0; i < yStopsBuffer.numStops - 1; i++) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
             if (y >= yStopsBuffer.stops[i] && y <= yStopsBuffer.stops[i + 1]) {
                 return i - 1;
             }
@@ -466,9 +474,11 @@ public class Calendar extends View {
     public float getBlockHeight() {
         return (float) (minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (mCurrentViewport.bottom - mCurrentViewport.top)) * mContentRect.height());
     }
+
     public float getBlockWidth() {
         return (float) (minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (mCurrentViewport.right - mCurrentViewport.left)) * mContentRect.width());
     }
+
     public boolean isScaleYAvailable(float viewportBottom, float viewportTop) {
         return ((minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (viewportBottom - viewportTop))) <= maxDeltaH);
     }
@@ -477,8 +487,8 @@ public class Calendar extends View {
         return ((minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (viewportRight - viewportLeft))) <= maxDeltaW);
     }
 
-
     //contentRect to viewport
+
     /**
      * Computes the pixel offset for the given X chart value. This may be outside the view bounds.
      */
@@ -521,38 +531,34 @@ public class Calendar extends View {
      */
     private void drawAxes(Canvas canvas) {
         int i;
-        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.numStops * 4, gridPaint);
+        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.axisLength * 4, gridPaint);
 
         mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
         if (mCurrentViewport.height() <= 2) {
-            for (i = 0; i < yStopsBuffer.numStops; i += 4) {
+            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
                 canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
             }
         }
         if (mCurrentViewport.height() <= 1) {
-            for (i = 2; i < yStopsBuffer.numStops; i += 4) {
+            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
                 canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
             }
         }
-        if (mCurrentViewport.height() <= 0.7) {
-            for (i = 1; i < yStopsBuffer.numStops; i += 2) {
+        if (mCurrentViewport.height() <= 0.6) {
+            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
                 canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
             }
         }
     }
 
-    private static void computeAxisStops(float start, float stop, int steps, AxisStops outStops, boolean isYAxis) {
-        double range = stop - start;
+    private static void computeAxisStops(double first, double last, int steps, AxisStops outStops, boolean isYAxis) {
+        double range = last - first;
         if (steps == 0 || range <= 0) {
             outStops.stops = new float[]{};
-            outStops.numStops = 0;
+            outStops.numBlocks = 0;
             return;
         }
-
         double interval = range / steps;
-        double first = Math.ceil(start / interval) * interval;
-        double last = Math.nextUp(Math.floor(stop / interval) * interval);
-
         if (isYAxis) {
             minDeltaH = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
             maxDeltaH = Math.max(minDeltaH, maxDeltaH);
@@ -566,30 +572,21 @@ public class Calendar extends View {
         for (f = first; f <= last; f += interval) {
             ++n;
         }
-
-        outStops.numStops = n;
-
-        if (outStops.stops.length < n) {
+        outStops.numBlocks = n;
+        outStops.axisLength = n + 1;
+        if (outStops.stops.length < outStops.axisLength) {
             // Ensure stops contains at least numStops elements.
-            outStops.stops = new float[n];
-            outStops.minutes = new int[n];
+            outStops.stops = new float[outStops.axisLength];
+            outStops.minutes = new int[outStops.axisLength];
         }
 
-        for (f = first, i = 0; i < n; f += interval, ++i) {
-            outStops.stops[i] = (float) f;
+        for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
+            outStops.stops[i] = (float) Math.min(f, last);
             if (i == 0)
                 outStops.minutes[i] = 1020;
             else
                 outStops.minutes[i] = outStops.minutes[i - 1] - 15;
-
         }
-        if (interval < 1) {
-            outStops.decimals = (int) Math.ceil(-Math.log10(interval));
-        } else {
-            outStops.decimals = 0;
-        }
-
-
     }
 
 
@@ -681,6 +678,9 @@ public class Calendar extends View {
         int action = MotionEventCompat.getActionMasked(event);
         switch (action) {
             case (MotionEvent.ACTION_DOWN):
+                if (isScale == false) {
+                    drawObjectbyEvent(event.getX(), event.getY());
+                }
                 break;
             case (MotionEvent.ACTION_MOVE):
                 break;
@@ -735,12 +735,12 @@ public class Calendar extends View {
             float viewportRight = viewportLeft + newWidth;
             float viewportBottom = viewportTop + newHeight;
             if (isScaleYAvailable(viewportBottom, viewportTop)) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
-                mCurrentViewport.top=viewportTop;
-                mCurrentViewport.bottom=viewportBottom;
+                mCurrentViewport.top = viewportTop;
+                mCurrentViewport.bottom = viewportBottom;
             }
-            if(isScaleXAvailable(viewportRight, viewportLeft)){
-                mCurrentViewport.left=viewportLeft;
-                mCurrentViewport.right=viewportRight;
+            if (isScaleXAvailable(viewportRight, viewportLeft)) {
+                mCurrentViewport.left = viewportLeft;
+                mCurrentViewport.right = viewportRight;
             }
 
             constrainViewport();
@@ -778,10 +778,6 @@ public class Calendar extends View {
             = new GestureDetector.SimpleOnGestureListener() {
         @Override
         public boolean onDown(MotionEvent e) {
-            if (isScale == false){
-                drawObjectbyEvent(e.getX(), e.getY());
-            }
-
             releaseEdgeEffects();
             mScrollerStartViewport.set(mCurrentViewport);
             mScroller.forceFinished(true);
@@ -791,20 +787,16 @@ public class Calendar extends View {
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
-            if (isScaleYAvailable(mCurrentViewport.bottom, mCurrentViewport.top) && isScaleYAvailable(mCurrentViewport.right, mCurrentViewport.left)) {
-                mZoomer.forceFinished(true);
-                if (hitTest(e.getX(), e.getY(), mZoomFocalPoint)) {
-                    mZoomer.startZoom(ZOOM_AMOUNT);
-                }
-                ViewCompat.postInvalidateOnAnimation(Calendar.this);
+            mZoomer.forceFinished(true);
+            if (hitTest(e.getX(), e.getY(), mZoomFocalPoint)) {
+                mZoomer.startZoom(ZOOM_AMOUNT);
             }
+            ViewCompat.postInvalidateOnAnimation(Calendar.this);
             return true;
-//            return false;
         }
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            // Scrolling uses math based on the viewport (as opposed to math using pixels).
             float viewportOffsetX = distanceX * mCurrentViewport.width() / mContentRect.width();
             float viewportOffsetY = -distanceY * mCurrentViewport.height() / mContentRect.height();
             computeScrollSurfaceSize(mSurfaceSizeBuffer);
@@ -865,7 +857,6 @@ public class Calendar extends View {
 
     private void fling(int velocityX, int velocityY) {
         releaseEdgeEffects();
-        // Flings use math in pixels (as opposed to math based on the viewport).
         computeScrollSurfaceSize(mSurfaceSizeBuffer);
         mScrollerStartViewport.set(mCurrentViewport);
         int startX = (int) (mSurfaceSizeBuffer.x * (mScrollerStartViewport.left - AXIS_X_MIN) / (
@@ -885,12 +876,6 @@ public class Calendar extends View {
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    /**
-     * Computes the current scrollable surface size, in pixels. For example, if the entire chart
-     * area is visible, this is simply the current size of {@link #mContentRect}. If the chart
-     * is zoomed in 200% in both directions, the returned size will be twice as large horizontally
-     * and vertically.
-     */
     private void computeScrollSurfaceSize(Point out) {
         out.set(
                 (int) (mContentRect.width() * (AXIS_X_MAX - AXIS_X_MIN)
@@ -902,9 +887,7 @@ public class Calendar extends View {
     @Override
     public void computeScroll() {
         super.computeScroll();
-
         boolean needsInvalidate = false;
-
         if (mScroller.computeScrollOffset()) {
             // The scroller isn't finished, meaning a fling or programmatic pan operation is
             // currently active.
@@ -966,11 +949,19 @@ public class Calendar extends View {
                     / mScrollerStartViewport.width();
             float pointWithinViewportY = (mZoomFocalPoint.y - mScrollerStartViewport.top)
                     / mScrollerStartViewport.height();
-            mCurrentViewport.set(
-                    mZoomFocalPoint.x - newWidth * pointWithinViewportX,
-                    mZoomFocalPoint.y - newHeight * pointWithinViewportY,
-                    mZoomFocalPoint.x + newWidth * (1 - pointWithinViewportX),
-                    mZoomFocalPoint.y + newHeight * (1 - pointWithinViewportY));
+
+            float viewportLeft = mZoomFocalPoint.x - newWidth * pointWithinViewportX;
+            float viewportTop = mZoomFocalPoint.y - newHeight * pointWithinViewportY;
+            float viewportRight = mZoomFocalPoint.x + newWidth * (1 - pointWithinViewportX);
+            float viewportBottom = mZoomFocalPoint.y + newHeight * (1 - pointWithinViewportY);
+            if (isScaleYAvailable(viewportBottom, viewportTop)) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
+                mCurrentViewport.top = viewportTop;
+                mCurrentViewport.bottom = viewportBottom;
+            }
+            if (isScaleXAvailable(viewportRight, viewportLeft)) {
+                mCurrentViewport.left = viewportLeft;
+                mCurrentViewport.right = viewportRight;
+            }
             constrainViewport();
             needsInvalidate = true;
         }
@@ -1222,8 +1213,8 @@ public class Calendar extends View {
     private static class AxisStops {
         float[] stops = new float[]{};
         int[] minutes = new int[]{};
-        int numStops;
-        int decimals;
+        int numBlocks;
+        int axisLength; //length of arr = numStops+1 because it has a last line
 
         public static String getHHMM(int minutes) {
             return String.format("%02d:%02d", minutes / 60, minutes % 60);
