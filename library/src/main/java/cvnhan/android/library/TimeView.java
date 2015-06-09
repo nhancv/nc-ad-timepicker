@@ -1,16 +1,18 @@
-package cvnhan.android.calendarsample.calendar;
+package cvnhan.android.library;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.support.v4.os.ParcelableCompat;
 import android.support.v4.os.ParcelableCompatCreatorCallbacks;
 import android.support.v4.view.GestureDetectorCompat;
@@ -23,19 +25,15 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
 import android.widget.OverScroller;
 
-import cvnhan.android.calendarsample.R;
-import cvnhan.android.calendarsample.interactivechart.OverScrollerCompat;
-import cvnhan.android.calendarsample.interactivechart.ScaleGestureDetectorCompat;
-import cvnhan.android.calendarsample.interactivechart.Zoomer;
-
 /**
- * Created by cvnhan on 04-Jun-15.
+ * Created by cvnhan on 09-Jun-15.
  */
-
-public class Calendar extends View {
-    private static final String TAG = "Calendar";
+public class TimeView extends View {
+    private static final String TAG = "TimeView";
 
     /**
      * Initial fling velocity for pan operations, in screen widths (or heights) per second.
@@ -137,14 +135,7 @@ public class Calendar extends View {
     private int gridColor;
     private Paint gridPaint;
 
-
-    private float mLabelTextSize;
-    private int mLabelSeparation;
-    private int mLabelTextColor;
-    private Paint mLabelTextPaint;
-    private int mMaxLabelWidth;
-    private int mLabelHeight;
-    private Paint mObjPaint;
+//    private Paint mObjPaint;
 
     // State objects and values related to gesture tracking.
     private ScaleGestureDetector mScaleGestureDetector;
@@ -166,51 +157,55 @@ public class Calendar extends View {
 
     private Canvas canvas;
 
-    public Calendar(Context context) {
+    public TimeView(Context context) {
         this(context, null, 0);
     }
 
-    public Calendar(Context context, AttributeSet attrs) {
+    public TimeView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public Calendar(Context context, AttributeSet attrs, int defStyle) {
+    public TimeView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
 
         TypedArray a = context.getTheme().obtainStyledAttributes(
-                attrs, R.styleable.Calendar, defStyle, defStyle);
+                attrs, R.styleable.TimeView, defStyle, defStyle);
 
         try {
-            mLabelTextColor = a.getColor(
-                    R.styleable.Calendar_cal_labelTextColor, mLabelTextColor);
-            mLabelTextSize = a.getDimension(
-                    R.styleable.Calendar_cal_labelTextSize, mLabelTextSize);
-            mLabelSeparation = a.getDimensionPixelSize(
-                    R.styleable.Calendar_cal_labelSeparation, mLabelSeparation);
 
             gridThickness = a.getDimension(
-                    R.styleable.Calendar_cal_gridThickness, gridThickness);
+                    R.styleable.TimeView_gridThickness, gridThickness);
             gridColor = a.getColor(
-                    R.styleable.Calendar_cal_gridColor, gridColor);
+                    R.styleable.TimeView_gridColor, gridColor);
 
             dataThickness = a.getDimension(
-                    R.styleable.Calendar_cal_dataThickness, dataThickness);
+                    R.styleable.TimeView_dataThickness, dataThickness);
             dataColor = a.getColor(
-                    R.styleable.Calendar_cal_dataColor, dataColor);
+                    R.styleable.TimeView_dataColor, dataColor);
 
             labelHeaderColTextColor = a.getColor(
-                    R.styleable.Calendar_cal_labelTextColor, mLabelTextColor);
+                    R.styleable.TimeView_labelHeaderColTextColor, labelHeaderColTextColor);
             labelHeaderColTextSize = a.getDimension(
-                    R.styleable.Calendar_cal_labelTextSize, mLabelTextSize);
+                    R.styleable.TimeView_labelHeaderColTextSize, labelHeaderColTextSize);
             labelHeaderColSeparation = a.getDimensionPixelSize(
-                    R.styleable.Calendar_cal_labelSeparation, mLabelSeparation);
+                    R.styleable.TimeView_labelHeaderColSeparation, labelHeaderColSeparation);
 
             labelHeaderRowTextColor = a.getColor(
-                    R.styleable.Calendar_cal_labelTextColor, mLabelTextColor);
+                    R.styleable.TimeView_labelHeaderRowTextColor, labelHeaderRowTextColor);
             labelHeaderRowTextSize = a.getDimension(
-                    R.styleable.Calendar_cal_labelTextSize, mLabelTextSize);
+                    R.styleable.TimeView_labelHeaderRowTextSize, labelHeaderRowTextSize);
             labelHeaderRowSeparation = a.getDimensionPixelSize(
-                    R.styleable.Calendar_cal_labelSeparation, mLabelSeparation);
+                    R.styleable.TimeView_labelHeaderRowSeparation, labelHeaderRowSeparation);
+
+            numColum=a.getInteger(R.styleable.TimeView_numColum, numColum);
+            numRow=a.getInteger(R.styleable.TimeView_numRow, numRow);
+
+            cellMaxWidth=a.getFloat(R.styleable.TimeView_cellMaxWidth, cellMaxWidth);
+            cellMaxHeight=a.getFloat(R.styleable.TimeView_cellMaxHeight, cellMaxHeight);
+
+            hasHeaderColum=a.getBoolean(R.styleable.TimeView_hasHeaderCol, hasHeaderColum);
+            hasHeaderRow=a.getBoolean(R.styleable.TimeView_hasHeaderRow, hasHeaderRow);
+
         } finally {
             a.recycle();
         }
@@ -249,13 +244,6 @@ public class Calendar extends View {
         labelHeaderColHeight = (int) Math.abs(headerColPaint.getFontMetrics().top);
         maxLabelHeaderColWidth = (int) headerColPaint.measureText("00:00");
 
-        mLabelTextPaint = new Paint();
-        mLabelTextPaint.setAntiAlias(true);
-        mLabelTextPaint.setTextSize(mLabelTextSize);
-        mLabelTextPaint.setColor(mLabelTextColor);
-        mLabelHeight = (int) Math.abs(mLabelTextPaint.getFontMetrics().top);
-        mMaxLabelWidth = (int) mLabelTextPaint.measureText("00:00");
-
         gridPaint = new Paint();
         gridPaint.setStrokeWidth(gridThickness);
         gridPaint.setColor(gridColor);
@@ -264,14 +252,9 @@ public class Calendar extends View {
         dataPaint = new Paint();
         dataPaint.setStrokeWidth(dataThickness);
         dataPaint.setColor(dataColor);
-        dataPaint.setStyle(Paint.Style.STROKE);
+        dataPaint.setStyle(Paint.Style.FILL);
         dataPaint.setAntiAlias(true);
-
-        mObjPaint = new Paint();
-        mObjPaint.setStrokeWidth(dataThickness);
-        mObjPaint.setColor(Color.BLUE);
-        mObjPaint.setStyle(Paint.Style.FILL);
-        mObjPaint.setAlpha(50);
+        dataPaint.setAlpha(50);
 
     }
 
@@ -365,39 +348,44 @@ public class Calendar extends View {
 
     private void drawHeader(Canvas canvas) {
         int clipRestoreCount = canvas.save();
-        canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
+
         int i;
         // Draws X labels
-        mLabelTextPaint.setTextAlign(Paint.Align.LEFT);
-        for (i = 0; i < xStopsBuffer.axisLength; i++) {
-            canvas.drawText(
-                    AxisStops.getHHMM(xStopsBuffer.minutes[i]),
-                    (i < xStopsBuffer.axisLength - 1) ? axisXPositionsBuffer[i] : (axisXPositionsBuffer[i] - maxLabelHeaderRowWidth),
-                    mContentRect.top - labelHeaderRowHeight - labelHeaderRowSeparation,
-                    headerRowPaint);
+        if (hasHeaderRow) {
+            canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
+            headerRowPaint.setTextAlign(Paint.Align.RIGHT);
+            for (i = 0; i < xStopsBuffer.axisLength; i++) {
+                canvas.drawText(
+                        AxisStops.getHHMM(xStopsBuffer.minutes[i]),
+                        (i < xStopsBuffer.axisLength - 1) ? axisXPositionsBuffer[i] : (axisXPositionsBuffer[i] - maxLabelHeaderRowWidth),
+                        mContentRect.top - labelHeaderRowHeight - labelHeaderRowSeparation,
+                        headerRowPaint);
+            }
+            canvas.restoreToCount(clipRestoreCount);
         }
-        canvas.restoreToCount(clipRestoreCount);
 
         // Draws Y labels
-        clipRestoreCount = canvas.save();
-        canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
-        mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
-        if (mCurrentViewport.height() <= 2) {
-            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
-                drawTextY(canvas, i);
+        if (hasHeaderColum) {
+            clipRestoreCount = canvas.save();
+            canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
+            headerColPaint.setTextAlign(Paint.Align.RIGHT);
+            if (mCurrentViewport.height() <= 2) {
+                for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
+                    drawTextY(canvas, i);
+                }
             }
-        }
-        if (mCurrentViewport.height() <= 1) {
-            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
-                drawTextY(canvas, i);
+            if (mCurrentViewport.height() <= 1) {
+                for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
+                    drawTextY(canvas, i);
+                }
             }
-        }
-        if (mCurrentViewport.height() <= 0.6) {
-            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
-                drawTextY(canvas, i);
+            if (mCurrentViewport.height() <= 0.6) {
+                for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
+                    drawTextY(canvas, i);
+                }
             }
+            canvas.restoreToCount(clipRestoreCount);
         }
-        canvas.restoreToCount(clipRestoreCount);
     }
 
     private void drawTextY(Canvas canvas, int i) {
@@ -407,10 +395,145 @@ public class Calendar extends View {
                 headerColPaint);
     }
 
+    public void initAxisStops(int row, int col) {
+        maxDeltaH = (cellMaxHeight * density) / mContentRect.height();
+        maxDeltaW = (cellMaxWidth * density) / mContentRect.width();
+        computeAxisStops(
+                mCurrentViewport.left,
+                mCurrentViewport.right,
+                col,
+                xStopsBuffer, false);
+        computeAxisStops(
+                mCurrentViewport.top,
+                mCurrentViewport.bottom,
+                row,
+                yStopsBuffer, true);
+
+    }
+
     /**
+     * Draws the chart axes onto the canvas.
+     */
+    private void drawAxes(Canvas canvas) {
+        int i;
+        //Draw axis X
+        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.axisLength * 4, gridPaint);
+
+        //Draw axis X
+        //Draw hours
+        if (mCurrentViewport.height() <= 2) {
+            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+        //Draw 30 unit (minutes)
+        if (mCurrentViewport.height() <= 1) {
+            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+        //Draw 15 unit (minutes)
+        if (mCurrentViewport.height() <= 0.6) {
+            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+    }
+
+    private static void computeAxisStops(double first, double last, int steps, AxisStops outStops, boolean isYAxis) {
+        double range = last - first;
+        if (steps == 0 || range <= 0) {
+            outStops.stops = new float[]{};
+            outStops.numBlocks = 0;
+            return;
+        }
+        double interval = range / steps;
+        if (isYAxis) {
+            minDeltaH = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
+            maxDeltaH = Math.max(minDeltaH, maxDeltaH);
+        } else {
+            minDeltaW = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
+            maxDeltaW = Math.max(minDeltaW, maxDeltaW);
+        }
+        double f;
+        int i;
+        int n = 0;
+        for (f = first; f <= last; f += interval) {
+            ++n;
+        }
+        outStops.numBlocks = n;
+        outStops.axisLength = n + 1;
+        if (outStops.stops.length < outStops.axisLength) {
+            // Ensure stops contains at least numStops elements.
+            outStops.stops = new float[outStops.axisLength];
+            outStops.minutes = new int[outStops.axisLength];
+        }
+
+        for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
+            outStops.stops[i] = (float) Math.min(f, last);
+            if (i == 0)
+                outStops.minutes[i] = 1020;
+            else
+                outStops.minutes[i] = outStops.minutes[i - 1] - 15;
+        }
+    }
+
+
+    private void drawEdgeEffectsUnclipped(Canvas canvas) {
+        boolean needsInvalidate = false;
+
+        if (!mEdgeEffectTop.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.left, mContentRect.top);
+            mEdgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
+            if (mEdgeEffectTop.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectBottom.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(2 * mContentRect.left - mContentRect.right, mContentRect.bottom);
+            canvas.rotate(180, mContentRect.width(), 0);
+            mEdgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
+            if (mEdgeEffectBottom.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectLeft.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.left, mContentRect.bottom);
+            canvas.rotate(-90, 0, 0);
+            mEdgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
+            if (mEdgeEffectLeft.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!mEdgeEffectRight.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.right, mContentRect.top);
+            canvas.rotate(90, 0, 0);
+            mEdgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
+            if (mEdgeEffectRight.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
+        }
+    }
+
+    /*
      * ADAPTOR define
      */
-//    (AXIS_X_MAX - mCurrentViewport.right) - (mCurrentViewport.left - AXIS_X_MIN) -
+    //(AXIS_X_MAX - mCurrentViewport.right) - (mCurrentViewport.left - AXIS_X_MIN) -
     //viewport to contentRect
     private float getAxisx(float eventX) {
         return mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
@@ -451,7 +574,8 @@ public class Calendar extends View {
         if (row == -1 || col == -1) return;
         float left = getDrawX(xStopsBuffer.stops[col]);
         float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.axisLength - row - 1]);
-        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), mObjPaint);
+        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), dataPaint);
+        ViewCompat.postInvalidateOnAnimation(this);
     }
 
     public void drawObjectbyEvent(float eventX, float eventY) {
@@ -509,140 +633,6 @@ public class Calendar extends View {
 
     //END ADAPTOR
 
-
-    public void initAxisStops(int row, int col) {
-        maxDeltaH = (cellMaxHeight * density) / mContentRect.height();
-        maxDeltaW = (cellMaxWidth * density) / mContentRect.width();
-        computeAxisStops(
-                mCurrentViewport.left,
-                mCurrentViewport.right,
-                col,
-                xStopsBuffer, false);
-        computeAxisStops(
-                mCurrentViewport.top,
-                mCurrentViewport.bottom,
-                row,
-                yStopsBuffer, true);
-
-    }
-
-    /**
-     * Draws the chart axes onto the canvas.
-     */
-    private void drawAxes(Canvas canvas) {
-        int i;
-        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.axisLength * 4, gridPaint);
-
-        mLabelTextPaint.setTextAlign(Paint.Align.RIGHT);
-        if (mCurrentViewport.height() <= 2) {
-            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-        if (mCurrentViewport.height() <= 1) {
-            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-        if (mCurrentViewport.height() <= 0.6) {
-            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-    }
-
-    private static void computeAxisStops(double first, double last, int steps, AxisStops outStops, boolean isYAxis) {
-        double range = last - first;
-        if (steps == 0 || range <= 0) {
-            outStops.stops = new float[]{};
-            outStops.numBlocks = 0;
-            return;
-        }
-        double interval = range / steps;
-        if (isYAxis) {
-            minDeltaH = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
-            maxDeltaH = Math.max(minDeltaH, maxDeltaH);
-        } else {
-            minDeltaW = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
-            maxDeltaW = Math.max(minDeltaW, maxDeltaW);
-        }
-        double f;
-        int i;
-        int n = 0;
-        for (f = first; f <= last; f += interval) {
-            ++n;
-        }
-        outStops.numBlocks = n;
-        outStops.axisLength = n + 1;
-        if (outStops.stops.length < outStops.axisLength) {
-            // Ensure stops contains at least numStops elements.
-            outStops.stops = new float[outStops.axisLength];
-            outStops.minutes = new int[outStops.axisLength];
-        }
-
-        for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
-            outStops.stops[i] = (float) Math.min(f, last);
-            if (i == 0)
-                outStops.minutes[i] = 1020;
-            else
-                outStops.minutes[i] = outStops.minutes[i - 1] - 15;
-        }
-    }
-
-
-    private void drawEdgeEffectsUnclipped(Canvas canvas) {
-        // The methods below rotate and translate the canvas as needed before drawing the glow,
-        // since EdgeEffectCompat always draws a top-glow at 0,0.
-
-        boolean needsInvalidate = false;
-
-        if (!mEdgeEffectTop.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.left, mContentRect.top);
-            mEdgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
-            if (mEdgeEffectTop.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectBottom.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(2 * mContentRect.left - mContentRect.right, mContentRect.bottom);
-            canvas.rotate(180, mContentRect.width(), 0);
-            mEdgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
-            if (mEdgeEffectBottom.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectLeft.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.left, mContentRect.bottom);
-            canvas.rotate(-90, 0, 0);
-            mEdgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
-            if (mEdgeEffectLeft.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!mEdgeEffectRight.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.right, mContentRect.top);
-            canvas.rotate(90, 0, 0);
-            mEdgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
-            if (mEdgeEffectRight.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -744,7 +734,7 @@ public class Calendar extends View {
             }
 
             constrainViewport();
-            ViewCompat.postInvalidateOnAnimation(Calendar.this);
+            ViewCompat.postInvalidateOnAnimation(TimeView.this);
             lastSpanX = spanX;
             lastSpanY = spanY;
             return true;
@@ -781,7 +771,7 @@ public class Calendar extends View {
             releaseEdgeEffects();
             mScrollerStartViewport.set(mCurrentViewport);
             mScroller.forceFinished(true);
-            ViewCompat.postInvalidateOnAnimation(Calendar.this);
+            ViewCompat.postInvalidateOnAnimation(TimeView.this);
             return true;
         }
 
@@ -791,7 +781,7 @@ public class Calendar extends View {
             if (hitTest(e.getX(), e.getY(), mZoomFocalPoint)) {
                 mZoomer.startZoom(ZOOM_AMOUNT);
             }
-            ViewCompat.postInvalidateOnAnimation(Calendar.this);
+            ViewCompat.postInvalidateOnAnimation(TimeView.this);
             return true;
         }
 
@@ -1077,25 +1067,16 @@ public class Calendar extends View {
     //
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    public float getLabelTextSize() {
-        return mLabelTextSize;
+    public float getLabelHeaderColTextSize() {
+        return labelHeaderColTextSize;
     }
 
-    public void setLabelTextSize(float labelTextSize) {
-        mLabelTextSize = labelTextSize;
+    public void setLabelHeaderColTextSize(float labelHeaderColTextSize) {
+        this.labelHeaderColTextSize = labelHeaderColTextSize;
         initPaints();
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    public int getLabelTextColor() {
-        return mLabelTextColor;
-    }
-
-    public void setLabelTextColor(int labelTextColor) {
-        mLabelTextColor = labelTextColor;
-        initPaints();
-        ViewCompat.postInvalidateOnAnimation(this);
-    }
 
     public float getGridThickness() {
         return gridThickness;
@@ -1221,3 +1202,178 @@ public class Calendar extends View {
         }
     }
 }
+
+
+/**
+ * A simple class that animates double-touch zoom gestures. Functionally similar to a {@link
+ * android.widget.Scroller}.
+ */
+class Zoomer {
+    /**
+     * The interpolator, used for making zooms animate 'naturally.'
+     */
+    private Interpolator mInterpolator;
+
+    /**
+     * The total animation duration for a zoom.
+     */
+    private int mAnimationDurationMillis;
+
+    /**
+     * Whether or not the current zoom has finished.
+     */
+    private boolean mFinished = true;
+
+    /**
+     * The current zoom value; computed by {@link #computeZoom()}.
+     */
+    private float mCurrentZoom;
+
+    /**
+     * The time the zoom started, computed using {@link android.os.SystemClock#elapsedRealtime()}.
+     */
+    private long mStartRTC;
+
+    /**
+     * The destination zoom factor.
+     */
+    private float mEndZoom;
+
+    public Zoomer(Context context) {
+        mInterpolator = new DecelerateInterpolator();
+        mAnimationDurationMillis = context.getResources().getInteger(
+                android.R.integer.config_shortAnimTime);
+    }
+
+    /**
+     * Forces the zoom finished state to the given value. Unlike {@link #abortAnimation()}, the
+     * current zoom value isn't set to the ending value.
+     *
+     * @see android.widget.Scroller#forceFinished(boolean)
+     */
+    public void forceFinished(boolean finished) {
+        mFinished = finished;
+    }
+
+    /**
+     * Aborts the animation, setting the current zoom value to the ending value.
+     *
+     * @see android.widget.Scroller#abortAnimation()
+     */
+    public void abortAnimation() {
+        mFinished = true;
+        mCurrentZoom = mEndZoom;
+    }
+
+    /**
+     * Starts a zoom from 1.0 to (1.0 + endZoom). That is, to zoom from 100% to 125%, endZoom should
+     * by 0.25f.
+     *
+     * @see android.widget.Scroller#startScroll(int, int, int, int)
+     */
+    public void startZoom(float endZoom) {
+        mStartRTC = SystemClock.elapsedRealtime();
+        mEndZoom = endZoom;
+
+        mFinished = false;
+        mCurrentZoom = 1f;
+    }
+
+    /**
+     * Computes the current zoom level, returning true if the zoom is still active and false if the
+     * zoom has finished.
+     *
+     * @see android.widget.Scroller#computeScrollOffset()
+     */
+    public boolean computeZoom() {
+        if (mFinished) {
+            return false;
+        }
+
+        long tRTC = SystemClock.elapsedRealtime() - mStartRTC;
+        if (tRTC >= mAnimationDurationMillis) {
+            mFinished = true;
+            mCurrentZoom = mEndZoom;
+            return false;
+        }
+
+        float t = tRTC * 1f / mAnimationDurationMillis;
+        mCurrentZoom = mEndZoom * mInterpolator.getInterpolation(t);
+        return true;
+    }
+
+    /**
+     * Returns the current zoom level.
+     *
+     * @see android.widget.Scroller#getCurrX()
+     */
+    public float getCurrZoom() {
+        return mCurrentZoom;
+    }
+}
+
+
+
+/**
+ * A utility class for using {@link android.widget.OverScroller} in a backward-compatible fashion.
+ */
+class OverScrollerCompat {
+    /**
+     * Disallow instantiation.
+     */
+    private OverScrollerCompat() {
+    }
+
+    /**
+     * @see android.view.ScaleGestureDetector#getCurrentSpanY()
+     */
+    @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+    public static float getCurrVelocity(OverScroller overScroller) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+            return overScroller.getCurrVelocity();
+        } else {
+            return 0;
+        }
+    }
+}
+
+
+/**
+ * A utility class for using {@link android.view.ScaleGestureDetector} in a backward-compatible
+ * fashion.
+ */
+class ScaleGestureDetectorCompat {
+    /**
+     * Disallow instantiation.
+     */
+    private ScaleGestureDetectorCompat() {
+    }
+
+    /**
+     * @see android.view.ScaleGestureDetector#getCurrentSpanX()
+     */
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    public static float getCurrentSpanX(ScaleGestureDetector scaleGestureDetector) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            return scaleGestureDetector.getCurrentSpanX();
+        } else {
+            return scaleGestureDetector.getCurrentSpan();
+        }
+    }
+
+    /**
+     * @see android.view.ScaleGestureDetector#getCurrentSpanY()
+     */
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    public static float getCurrentSpanY(ScaleGestureDetector scaleGestureDetector) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            return scaleGestureDetector.getCurrentSpanY();
+        } else {
+            return scaleGestureDetector.getCurrentSpan();
+        }
+    }
+}
+
+
+
+

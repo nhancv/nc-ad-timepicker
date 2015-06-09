@@ -1,4 +1,4 @@
-package cvnhan.android.calendarsample.calendar;
+package cvnhan.android.calendarsample;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

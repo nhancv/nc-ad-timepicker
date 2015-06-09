@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="TimeView">
+        <attr name="labelHeaderRowTextSize" format="dimension" />
+        <attr name="labelHeaderRowSeparation" format="dimension" />
+        <attr name="labelHeaderRowTextColor" format="color" />
+        <attr name="labelHeaderColTextSize" format="dimension" />
+        <attr name="labelHeaderColSeparation" format="dimension" />
+        <attr name="labelHeaderColTextColor" format="color" />
+        <attr name="dataThickness" format="dimension" />
+        <attr name="dataColor" format="color" />
+        <attr name="gridThickness" format="dimension" />
+        <attr name="gridColor" format="color" />
+        <attr name="numColum" format="integer" />
+        <attr name="numRow" format="integer" />
+        <attr name="cellMaxWidth" format="float" />
+        <attr name="cellMaxHeight" format="float" />
+        <attr name="hasHeaderRow" format="boolean" />
+        <attr name="hasHeaderCol" format="boolean" />
+    </declare-styleable>
+</resources>
