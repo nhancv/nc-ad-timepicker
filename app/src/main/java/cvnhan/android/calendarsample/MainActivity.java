@@ -5,16 +5,16 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import cvnhan.android.calendarsample.interactivechart.InteractiveLineGraphView;
+import cvnhan.android.library.TimeView;
 
 
 public class MainActivity  extends Activity {
-    private InteractiveLineGraphView mGraphView;
+    private TimeView mGraphView;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mGraphView = (InteractiveLineGraphView) findViewById(R.id.chart);
+        mGraphView = (TimeView) findViewById(R.id.chart);
     }
 
     @Override

@@ -85,7 +85,7 @@ public class TimeView extends View {
     private static float cellMaxWidth = 90;
     private static float cellMaxHeight = 80;
 
-    private static int numColum = 10;
+    private static int numColum = 2;
     private static int numRow = 50;
     private static boolean hasHeaderRow = true;
     private static boolean hasHeaderColum = true;
@@ -234,6 +234,7 @@ public class TimeView extends View {
         headerRowPaint.setAntiAlias(true);
         headerRowPaint.setTextSize(labelHeaderRowTextSize);
         headerRowPaint.setColor(labelHeaderRowTextColor);
+//        headerRowPaint.setTextAlign(Paint.Align.CENTER);
         labelHeaderRowHeight = (int) Math.abs(headerRowPaint.getFontMetrics().top);
         maxLabelHeaderRowWidth = (int) headerRowPaint.measureText("00:00");
 
@@ -241,6 +242,7 @@ public class TimeView extends View {
         headerColPaint.setAntiAlias(true);
         headerColPaint.setTextSize(labelHeaderColTextSize);
         headerColPaint.setColor(labelHeaderColTextColor);
+//        headerColPaint.setTextAlign(Paint.Align.RIGHT);
         labelHeaderColHeight = (int) Math.abs(headerColPaint.getFontMetrics().top);
         maxLabelHeaderColWidth = (int) headerColPaint.measureText("00:00");
 
@@ -353,7 +355,7 @@ public class TimeView extends View {
         // Draws X labels
         if (hasHeaderRow) {
             canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
-            headerRowPaint.setTextAlign(Paint.Align.RIGHT);
+
             for (i = 0; i < xStopsBuffer.axisLength; i++) {
                 canvas.drawText(
                         AxisStops.getHHMM(xStopsBuffer.minutes[i]),
@@ -368,7 +370,7 @@ public class TimeView extends View {
         if (hasHeaderColum) {
             clipRestoreCount = canvas.save();
             canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
-            headerColPaint.setTextAlign(Paint.Align.RIGHT);
+
             if (mCurrentViewport.height() <= 2) {
                 for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
                     drawTextY(canvas, i);
@@ -463,6 +465,7 @@ public class TimeView extends View {
         }
         outStops.numBlocks = n;
         outStops.axisLength = n + 1;
+        Log.e(TAG, outStops.numBlocks + " " +(n+1));
         if (outStops.stops.length < outStops.axisLength) {
             // Ensure stops contains at least numStops elements.
             outStops.stops = new float[outStops.axisLength];
@@ -470,7 +473,8 @@ public class TimeView extends View {
         }
 
         for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
-            outStops.stops[i] = (float) Math.min(f, last);
+            outStops.stops[i] = (float) f;
+            if(isYAxis==false) Log.e(TAG, f+"");
             if (i == 0)
                 outStops.minutes[i] = 1020;
             else
