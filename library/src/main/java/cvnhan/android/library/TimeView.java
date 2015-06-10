@@ -470,9 +470,9 @@ public class TimeView extends View {
         for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
             outStops.stops[i] = (float) f;
             if (i == 0)
-                outStops.minutes[i] = 1020;
+                outStops.minutes[i] = 870;
             else
-                outStops.minutes[i] = outStops.minutes[i - 1] - 15;
+                outStops.minutes[i] = outStops.minutes[i - 1] + 15;
         }
     }
 
@@ -539,7 +539,8 @@ public class TimeView extends View {
 
     private float getAxisy(float eventY) {
         //do toa do viewport bottom tuong ung voi contentRect top nen phai cong them 1 khoang delta
-        return (AXIS_Y_MAX - mCurrentViewport.bottom) - (mCurrentViewport.top - AXIS_Y_MIN) + mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
+//        return (AXIS_Y_MAX - mCurrentViewport.bottom) - (mCurrentViewport.top - AXIS_Y_MIN) + mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
+        return mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
     }
 
     public int getIndexy(float y) {
@@ -571,7 +572,8 @@ public class TimeView extends View {
     public void drawObjectbyCell(int row, int col) {
         if (row == -1 || col == -1) return;
         float left = getDrawX(xStopsBuffer.stops[col]);
-        float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.axisLength - row - 1]);
+//        float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.axisLength - row - 1]);
+        float top = getDrawY(yStopsBuffer.stops[row]);
         canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), dataPaint);
         ViewCompat.postInvalidateOnAnimation(this);
     }
@@ -624,8 +626,8 @@ public class TimeView extends View {
      * Computes the pixel offset for the given Y chart value. This may be outside the view bounds.
      */
     private float getDrawY(float y) {
-        return mContentRect.bottom
-                - mContentRect.height()
+        return mContentRect.top
+                + mContentRect.height()
                 * ((y - mCurrentViewport.top) / mCurrentViewport.height());
     }
 
@@ -655,7 +657,7 @@ public class TimeView extends View {
                         * (x - mContentRect.left) / mContentRect.width(),
                 mCurrentViewport.top
                         + mCurrentViewport.height()
-                        * (y - mContentRect.bottom) / -mContentRect.height());
+                        * (y - mContentRect.top) / mContentRect.height());
         return true;
     }
 
@@ -719,7 +721,8 @@ public class TimeView extends View {
             hitTest(focusX, focusY, viewportFocus);
 
             float viewportLeft = viewportFocus.x - newWidth * (focusX - mContentRect.left) / mContentRect.width();
-            float viewportTop = viewportFocus.y - newHeight * (mContentRect.bottom - focusY) / mContentRect.height();
+//            float viewportTop = viewportFocus.y - newHeight * (mContentRect.bottom - focusY) / mContentRect.height();
+            float viewportTop = viewportFocus.y - newHeight * (focusY - mContentRect.top) / mContentRect.height();
             float viewportRight = viewportLeft + newWidth;
             float viewportBottom = viewportTop + newHeight;
             if (isScaleYAvailable(viewportBottom, viewportTop)) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
@@ -786,21 +789,24 @@ public class TimeView extends View {
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
             float viewportOffsetX = distanceX * mCurrentViewport.width() / mContentRect.width();
-            float viewportOffsetY = -distanceY * mCurrentViewport.height() / mContentRect.height();
+            float viewportOffsetY = distanceY * mCurrentViewport.height() / mContentRect.height();
             computeScrollSurfaceSize(mSurfaceSizeBuffer);
             int scrolledX = (int) (mSurfaceSizeBuffer.x
                     * (mCurrentViewport.left + viewportOffsetX - AXIS_X_MIN)
                     / (AXIS_X_MAX - AXIS_X_MIN));
+//            int scrolledY = (int) (mSurfaceSizeBuffer.y
+//                    * (AXIS_Y_MAX - mCurrentViewport.bottom - viewportOffsetY)
+//                    / (AXIS_Y_MAX - AXIS_Y_MIN));
             int scrolledY = (int) (mSurfaceSizeBuffer.y
-                    * (AXIS_Y_MAX - mCurrentViewport.bottom - viewportOffsetY)
+                    * (mCurrentViewport.top + viewportOffsetY - AXIS_Y_MIN)
                     / (AXIS_Y_MAX - AXIS_Y_MIN));
             boolean canScrollX = mCurrentViewport.left > AXIS_X_MIN
                     || mCurrentViewport.right < AXIS_X_MAX;
             boolean canScrollY = mCurrentViewport.top > AXIS_Y_MIN
                     || mCurrentViewport.bottom < AXIS_Y_MAX;
-            setViewportBottomLeft(
+            setViewportTopLeft(
                     mCurrentViewport.left + viewportOffsetX,
-                    mCurrentViewport.bottom + viewportOffsetY);
+                    mCurrentViewport.top + viewportOffsetY);
 
             if (canScrollX && scrolledX < 0) {
                 mEdgeEffectLeft.onPull(scrolledX / (float) mContentRect.width());
@@ -849,7 +855,7 @@ public class TimeView extends View {
         mScrollerStartViewport.set(mCurrentViewport);
         int startX = (int) (mSurfaceSizeBuffer.x * (mScrollerStartViewport.left - AXIS_X_MIN) / (
                 AXIS_X_MAX - AXIS_X_MIN));
-        int startY = (int) (mSurfaceSizeBuffer.y * (AXIS_Y_MAX - mScrollerStartViewport.bottom) / (
+        int startY = (int) (mSurfaceSizeBuffer.y * (mScrollerStartViewport.top - AXIS_Y_MIN) / (
                 AXIS_Y_MAX - AXIS_Y_MIN));
         mScroller.forceFinished(true);
         mScroller.fling(
@@ -923,9 +929,11 @@ public class TimeView extends View {
 
             float currXRange = AXIS_X_MIN + (AXIS_X_MAX - AXIS_X_MIN)
                     * currX / mSurfaceSizeBuffer.x;
-            float currYRange = AXIS_Y_MAX - (AXIS_Y_MAX - AXIS_Y_MIN)
+//            float currYRange = AXIS_Y_MAX - (AXIS_Y_MAX - AXIS_Y_MIN)
+//                    * currY / mSurfaceSizeBuffer.y;
+            float currYRange = AXIS_Y_MIN + (AXIS_Y_MAX - AXIS_Y_MIN)
                     * currY / mSurfaceSizeBuffer.y;
-            setViewportBottomLeft(currXRange, currYRange);
+            setViewportTopLeft(currXRange, currYRange);
         }
 
         if (mZoomer.computeZoom()) {
@@ -965,7 +973,7 @@ public class TimeView extends View {
      * the bottom of the {@link #mCurrentViewport} rectangle. For more details on why top and
      * bottom are flipped, see {@link #mCurrentViewport}.
      */
-    private void setViewportBottomLeft(float x, float y) {
+    private void setViewportTopLeft(float x, float y) {
         /**
          * Constrains within the scroll range. The scroll range is simply the viewport extremes
          * (AXIS_X_MAX, etc.) minus the viewport size. For example, if the extrema were 0 and 10,
@@ -975,9 +983,11 @@ public class TimeView extends View {
         float curWidth = mCurrentViewport.width();
         float curHeight = mCurrentViewport.height();
         x = Math.max(AXIS_X_MIN, Math.min(x, AXIS_X_MAX - curWidth));
-        y = Math.max(AXIS_Y_MIN + curHeight, Math.min(y, AXIS_Y_MAX));
+//        y = Math.max(AXIS_Y_MIN + curHeight, Math.min(y, AXIS_Y_MAX));
+        y = Math.max(AXIS_Y_MIN, Math.min(y, AXIS_Y_MAX- curHeight));
 
-        mCurrentViewport.set(x, y - curHeight, x + curWidth, y);
+//        mCurrentViewport.set(x, y - curHeight, x + curWidth, y);
+        mCurrentViewport.set(x, y, x + curWidth, y + curHeight);
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
