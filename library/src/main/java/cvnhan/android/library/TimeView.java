@@ -4,6 +4,7 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.PointF;
@@ -71,7 +72,7 @@ public class TimeView extends View {
      *
      * @see #mContentRect
      */
-    private RectF mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
+    public static RectF mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
 
     /**
      * The current destination rectangle (in pixel coordinates) into which the chart data should
@@ -79,13 +80,13 @@ public class TimeView extends View {
      *
      * @see #mCurrentViewport
      */
-    private Rect mContentRect = new Rect();
+    public static Rect mContentRect = new Rect();
 
     //Define custom
     private static float cellMaxWidth = 90;
     private static float cellMaxHeight = 80;
 
-    private static int numColum = 2;
+    private static int numColum = 1;
     private static int numRow = 50;
     private static boolean hasHeaderRow = true;
     private static boolean hasHeaderColum = true;
@@ -93,7 +94,6 @@ public class TimeView extends View {
     private static double minDeltaH = 1, maxDeltaH = 1;
     private static double minDeltaW = 1, maxDeltaW = 1;
     private float density = getResources().getDisplayMetrics().density;
-    public boolean isScale = false;
 
     //Array data
     private final AxisStops xStopsBuffer = new AxisStops();
@@ -135,25 +135,37 @@ public class TimeView extends View {
     private int gridColor;
     private Paint gridPaint;
 
-//    private Paint mObjPaint;
-
     // State objects and values related to gesture tracking.
-    private ScaleGestureDetector mScaleGestureDetector;
-    private GestureDetectorCompat mGestureDetector;
+    private ScaleGestureDetector scaleGestureDetector;
+    private GestureDetectorCompat gestureDetector;
     private OverScroller mScroller;
     private Zoomer mZoomer;
-    private PointF mZoomFocalPoint = new PointF();
-    private RectF mScrollerStartViewport = new RectF(); // Used only for zooms and flings.
+    private PointF zoomFocalPoint = new PointF();
+    private RectF scrollerStartViewport = new RectF(); // Used only for zooms and flings.
+
+    private float _downEventX, _downEventY, _moveEventX, _moveEventY, _distanceX, _distanceY, _spanX, _spanY, _velocityX, _velocityY;
+    private CheckForTap pendingCheckForTap;
+    private CheckForMove pendingCheckForMove;
+    private boolean FLAG_DOWN = false;
+    private boolean FLAG_MOVE = false;
+    private boolean FLAG_UP = false;
+    private boolean FLAG_SCALE = false;
+    private boolean FLAG_SCROLL = false;
+    private boolean FLAG_DOUBLETAP = false;
+    private boolean FLAG_FLING = false;
+
+    private ObjectData objectData;
+    private static final float deltaDetectMove = 15;
 
     // Edge effect / overscroll tracking objects.
-    private EdgeEffectCompat mEdgeEffectTop;
-    private EdgeEffectCompat mEdgeEffectBottom;
-    private EdgeEffectCompat mEdgeEffectLeft;
-    private EdgeEffectCompat mEdgeEffectRight;
-    private boolean mEdgeEffectTopActive;
-    private boolean mEdgeEffectBottomActive;
-    private boolean mEdgeEffectLeftActive;
-    private boolean mEdgeEffectRightActive;
+    private EdgeEffectCompat edgeEffectTop;
+    private EdgeEffectCompat edgeEffectBottom;
+    private EdgeEffectCompat edgeEffectLeft;
+    private EdgeEffectCompat edgeEffectRight;
+    private boolean edgeEffectTopActive;
+    private boolean edgeEffectBottomActive;
+    private boolean edgeEffectLeftActive;
+    private boolean edgeEffectRightActive;
 
     private Canvas canvas;
 
@@ -172,7 +184,6 @@ public class TimeView extends View {
                 attrs, R.styleable.TimeView, defStyle, defStyle);
 
         try {
-
             gridThickness = a.getDimension(
                     R.styleable.TimeView_gridThickness, gridThickness);
             gridColor = a.getColor(
@@ -197,14 +208,14 @@ public class TimeView extends View {
             labelHeaderRowSeparation = a.getDimensionPixelSize(
                     R.styleable.TimeView_labelHeaderRowSeparation, labelHeaderRowSeparation);
 
-            numColum=a.getInteger(R.styleable.TimeView_numColum, numColum);
-            numRow=a.getInteger(R.styleable.TimeView_numRow, numRow);
+            numColum = a.getInteger(R.styleable.TimeView_numColum, numColum);
+            numRow = a.getInteger(R.styleable.TimeView_numRow, numRow);
 
-            cellMaxWidth=a.getFloat(R.styleable.TimeView_cellMaxWidth, cellMaxWidth);
-            cellMaxHeight=a.getFloat(R.styleable.TimeView_cellMaxHeight, cellMaxHeight);
+            cellMaxWidth = a.getFloat(R.styleable.TimeView_cellMaxWidth, cellMaxWidth);
+            cellMaxHeight = a.getFloat(R.styleable.TimeView_cellMaxHeight, cellMaxHeight);
 
-            hasHeaderColum=a.getBoolean(R.styleable.TimeView_hasHeaderCol, hasHeaderColum);
-            hasHeaderRow=a.getBoolean(R.styleable.TimeView_hasHeaderRow, hasHeaderRow);
+            hasHeaderColum = a.getBoolean(R.styleable.TimeView_hasHeaderCol, hasHeaderColum);
+            hasHeaderRow = a.getBoolean(R.styleable.TimeView_hasHeaderRow, hasHeaderRow);
 
         } finally {
             a.recycle();
@@ -213,17 +224,17 @@ public class TimeView extends View {
         initPaints();
 
         // Sets up interactions
-        mScaleGestureDetector = new ScaleGestureDetector(context, mScaleGestureListener);
-        mGestureDetector = new GestureDetectorCompat(context, mGestureListener);
+        scaleGestureDetector = new ScaleGestureDetector(context, mScaleGestureListener);
+        gestureDetector = new GestureDetectorCompat(context, mGestureListener);
 
         mScroller = new OverScroller(context);
         mZoomer = new Zoomer(context);
 
         // Sets up edge effects
-        mEdgeEffectLeft = new EdgeEffectCompat(context);
-        mEdgeEffectTop = new EdgeEffectCompat(context);
-        mEdgeEffectRight = new EdgeEffectCompat(context);
-        mEdgeEffectBottom = new EdgeEffectCompat(context);
+        edgeEffectLeft = new EdgeEffectCompat(context);
+        edgeEffectTop = new EdgeEffectCompat(context);
+        edgeEffectRight = new EdgeEffectCompat(context);
+        edgeEffectBottom = new EdgeEffectCompat(context);
     }
 
     /**
@@ -269,6 +280,7 @@ public class TimeView extends View {
                         + labelHeaderRowSeparation,
                 getWidth() - getPaddingRight(),
                 getHeight() - getPaddingBottom());
+        objectData = ObjectData.getInstance();
         initAxisStops(numRow, numColum);
     }
 
@@ -307,7 +319,7 @@ public class TimeView extends View {
         // Removes clipping rectangle
         canvas.restoreToCount(clipRestoreCount);
         canvas.drawRect(mContentRect, gridPaint);
-
+        objectData.Draw(canvas);
 
     }
 
@@ -393,7 +405,7 @@ public class TimeView extends View {
     private void drawTextY(Canvas canvas, int i) {
         canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
                 mContentRect.left - labelHeaderColSeparation - maxLabelHeaderColWidth,
-                (i < yStopsBuffer.axisLength - 1) ? axisYPositionsBuffer[i] : (axisYPositionsBuffer[i] + labelHeaderColHeight),
+                (i > 0) ? axisYPositionsBuffer[i] : (axisYPositionsBuffer[i] + labelHeaderColHeight),
                 headerColPaint);
     }
 
@@ -480,44 +492,44 @@ public class TimeView extends View {
     private void drawEdgeEffectsUnclipped(Canvas canvas) {
         boolean needsInvalidate = false;
 
-        if (!mEdgeEffectTop.isFinished()) {
+        if (!edgeEffectTop.isFinished()) {
             final int restoreCount = canvas.save();
             canvas.translate(mContentRect.left, mContentRect.top);
-            mEdgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
-            if (mEdgeEffectTop.draw(canvas)) {
+            edgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
+            if (edgeEffectTop.draw(canvas)) {
                 needsInvalidate = true;
             }
             canvas.restoreToCount(restoreCount);
         }
 
-        if (!mEdgeEffectBottom.isFinished()) {
+        if (!edgeEffectBottom.isFinished()) {
             final int restoreCount = canvas.save();
             canvas.translate(2 * mContentRect.left - mContentRect.right, mContentRect.bottom);
             canvas.rotate(180, mContentRect.width(), 0);
-            mEdgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
-            if (mEdgeEffectBottom.draw(canvas)) {
+            edgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
+            if (edgeEffectBottom.draw(canvas)) {
                 needsInvalidate = true;
             }
             canvas.restoreToCount(restoreCount);
         }
 
-        if (!mEdgeEffectLeft.isFinished()) {
+        if (!edgeEffectLeft.isFinished()) {
             final int restoreCount = canvas.save();
             canvas.translate(mContentRect.left, mContentRect.bottom);
             canvas.rotate(-90, 0, 0);
-            mEdgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
-            if (mEdgeEffectLeft.draw(canvas)) {
+            edgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
+            if (edgeEffectLeft.draw(canvas)) {
                 needsInvalidate = true;
             }
             canvas.restoreToCount(restoreCount);
         }
 
-        if (!mEdgeEffectRight.isFinished()) {
+        if (!edgeEffectRight.isFinished()) {
             final int restoreCount = canvas.save();
             canvas.translate(mContentRect.right, mContentRect.top);
             canvas.rotate(90, 0, 0);
-            mEdgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
-            if (mEdgeEffectRight.draw(canvas)) {
+            edgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
+            if (edgeEffectRight.draw(canvas)) {
                 needsInvalidate = true;
             }
             canvas.restoreToCount(restoreCount);
@@ -531,15 +543,12 @@ public class TimeView extends View {
     /*
      * ADAPTOR define
      */
-    //(AXIS_X_MAX - mCurrentViewport.right) - (mCurrentViewport.left - AXIS_X_MIN) -
     //viewport to contentRect
     private float getAxisx(float eventX) {
         return mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
     }
 
     private float getAxisy(float eventY) {
-        //do toa do viewport bottom tuong ung voi contentRect top nen phai cong them 1 khoang delta
-//        return (AXIS_Y_MAX - mCurrentViewport.bottom) - (mCurrentViewport.top - AXIS_Y_MIN) + mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
         return mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
     }
 
@@ -572,16 +581,13 @@ public class TimeView extends View {
     public void drawObjectbyCell(int row, int col) {
         if (row == -1 || col == -1) return;
         float left = getDrawX(xStopsBuffer.stops[col]);
-//        float top = getDrawY(yStopsBuffer.stops[yStopsBuffer.axisLength - row - 1]);
         float top = getDrawY(yStopsBuffer.stops[row]);
         canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), dataPaint);
-        ViewCompat.postInvalidateOnAnimation(this);
     }
 
     public void drawObjectbyEvent(float eventX, float eventY) {
         int row = getIndexyByEventY(eventY);
         int col = getIndexxByEventX(eventX);
-        Log.e(TAG, "row=" + row + " col=" + col + " eventX=" + eventX + " eventY=" + eventY);
         drawObjectbyCell(row, col);
 
     }
@@ -640,12 +646,6 @@ public class TimeView extends View {
     //
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /**
-     * Finds the chart point (i.e. within the chart's domain and range) represented by the
-     * given pixel coordinates, if that pixel is within the chart region described by
-     * {@link #mContentRect}. If the point is found, the "dest" argument is set to the point and
-     * this function returns true. Otherwise, this function returns false and "dest" is unchanged.
-     */
     private boolean hitTest(float x, float y, PointF dest) {
         if (!mContentRect.contains((int) x, (int) y)) {
             return false;
@@ -663,28 +663,110 @@ public class TimeView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        boolean retVal = mScaleGestureDetector.onTouchEvent(event);
-        retVal = mGestureDetector.onTouchEvent(event) || retVal;
-        int action = MotionEventCompat.getActionMasked(event);
+        final int action = MotionEventCompat.getActionMasked(event);
         switch (action) {
             case (MotionEvent.ACTION_DOWN):
-                if (isScale == false) {
-                    drawObjectbyEvent(event.getX(), event.getY());
+                Utils.e("ACTION_DOWN");
+                FLAG_DOWN = true;
+                _downEventX = event.getX();
+                _downEventY = event.getY();
+                if (pendingCheckForTap == null) {
+                    pendingCheckForTap = new CheckForTap();
                 }
+                handleOnTouchDown(event);
                 break;
             case (MotionEvent.ACTION_MOVE):
+                Utils.e("ACTION_MOVE");
+                FLAG_MOVE = true;
+                _moveEventX = event.getX();
+                _moveEventY = event.getY();
+                if (pendingCheckForMove == null) {
+                    pendingCheckForMove = new CheckForMove();
+                }
+                handleOnMove(event);
                 break;
             case (MotionEvent.ACTION_UP):
-                isScale = false;
-                break;
-            case (MotionEvent.ACTION_CANCEL):
-                break;
-            case (MotionEvent.ACTION_OUTSIDE):
+                Utils.e("ACTION_UP");
+                FLAG_UP = true;
+
+                int index=getIndexy(objectData.getAxisy());
+                if(index!=-1)
+                objectData.fixBlock(canvas, yStopsBuffer.stops[index]);
+                invalidate();
+                releaseFlagTouch();
                 break;
             default:
                 break;
         }
+        boolean retVal = scaleGestureDetector.onTouchEvent(event);
+        if (!scaleGestureDetector.isInProgress()) {
+            retVal = gestureDetector.onTouchEvent(event) || retVal;
+        }
         return retVal || super.onTouchEvent(event);
+    }
+
+    public void handleOnTouchDown(MotionEvent event) {
+        if (objectData.isTouched(_downEventY)==false) {
+            objectData.setHeight(getBlockHeight() * 4);
+            objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
+        }else{
+            objectData.releaseObj();
+        }
+//        postDelayed(pendingCheckForTap, ViewConfiguration.getTapTimeout());
+    }
+
+    private void handleOnMove(MotionEvent event) {
+//        removeTapCallback();
+//        if (objectData.isTouched(_moveEventY)) {
+//        objectData.setHeight(getBlockHeight() * 4);
+//        objectData.setAxisy(Math.max(_moveEventY, mContentRect.top));
+//        invalidate();
+//        }
+
+//        postDelayed(pendingCheckForMove, ViewConfiguration.getTapTimeout());
+    }
+
+    private void removeTapCallback() {
+        if (pendingCheckForTap != null) {
+            removeCallbacks(pendingCheckForTap);
+        }
+    }
+
+    private void removeMoveCallback() {
+        if (pendingCheckForMove != null) {
+            removeCallbacks(pendingCheckForMove);
+        }
+    }
+
+    private final class CheckForTap implements Runnable {
+        public void run() {
+            if (FLAG_MOVE) return;
+//            if (Math.abs(_moveEventX - _downEventX) > deltaDetectMove || Math.abs(_moveEventY - _downEventY) > deltaDetectMove)
+//                return;
+
+//            if (objectData.isTouched(_downEventY)) {
+//                objectData.releaseObj();
+//            } else {
+//                objectData.setHeight(getBlockHeight() * 4);
+//                objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
+//            }
+//            drawObjectbyEvent(_downEventX, _downEventY);
+        }
+    }
+
+    private final class CheckForMove implements Runnable {
+        public void run() {
+//            removeTapCallback();
+            if (FLAG_SCROLL || FLAG_SCALE) return;
+//            if (Math.abs(_moveEventX - _downEventX) > deltaDetectMove || Math.abs(_moveEventY - _downEventY) > deltaDetectMove)
+//                return;
+//            objectData.
+//                    drawObjectbyEvent(_moveEventX, _moveEventY);
+        }
+    }
+
+    private void releaseFlagTouch() {
+        FLAG_DOWN = FLAG_MOVE = FLAG_SCROLL = FLAG_SCALE = FLAG_UP = FLAG_FLING = FLAG_DOUBLETAP = false;
     }
 
     /**
@@ -692,10 +774,6 @@ public class TimeView extends View {
      */
     private final ScaleGestureDetector.OnScaleGestureListener mScaleGestureListener
             = new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-        /**
-         * This is the active focal point in terms of the viewport. Could be a local
-         * variable but kept here to minimize per-frame allocations.
-         */
         private PointF viewportFocus = new PointF();
         private float lastSpanX;
         private float lastSpanY;
@@ -704,7 +782,6 @@ public class TimeView extends View {
         public boolean onScaleBegin(ScaleGestureDetector scaleGestureDetector) {
             lastSpanX = ScaleGestureDetectorCompat.getCurrentSpanX(scaleGestureDetector);
             lastSpanY = ScaleGestureDetectorCompat.getCurrentSpanY(scaleGestureDetector);
-            isScale = true;
             return true;
         }
 
@@ -712,7 +789,10 @@ public class TimeView extends View {
         public boolean onScale(ScaleGestureDetector scaleGestureDetector) {
             float spanX = ScaleGestureDetectorCompat.getCurrentSpanX(scaleGestureDetector);
             float spanY = ScaleGestureDetectorCompat.getCurrentSpanY(scaleGestureDetector);
-
+            Utils.e("ACTION_onScale");
+            FLAG_SCALE = true;
+            _spanX = spanX;
+            _spanY = spanY;
             float newWidth = lastSpanX / spanX * mCurrentViewport.width();
             float newHeight = lastSpanY / spanY * mCurrentViewport.height();
 
@@ -721,7 +801,6 @@ public class TimeView extends View {
             hitTest(focusX, focusY, viewportFocus);
 
             float viewportLeft = viewportFocus.x - newWidth * (focusX - mContentRect.left) / mContentRect.width();
-//            float viewportTop = viewportFocus.y - newHeight * (mContentRect.bottom - focusY) / mContentRect.height();
             float viewportTop = viewportFocus.y - newHeight * (focusY - mContentRect.top) / mContentRect.height();
             float viewportRight = viewportLeft + newWidth;
             float viewportBottom = viewportTop + newHeight;
@@ -743,7 +822,6 @@ public class TimeView extends View {
 
         @Override
         public void onScaleEnd(ScaleGestureDetector detector) {
-            isScale = false;
             super.onScaleEnd(detector);
         }
     };
@@ -770,7 +848,7 @@ public class TimeView extends View {
         @Override
         public boolean onDown(MotionEvent e) {
             releaseEdgeEffects();
-            mScrollerStartViewport.set(mCurrentViewport);
+            scrollerStartViewport.set(mCurrentViewport);
             mScroller.forceFinished(true);
             ViewCompat.postInvalidateOnAnimation(TimeView.this);
             return true;
@@ -778,8 +856,10 @@ public class TimeView extends View {
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
+            Utils.e("ACTION_DOUBLETAP");
+            FLAG_DOUBLETAP = true;
             mZoomer.forceFinished(true);
-            if (hitTest(e.getX(), e.getY(), mZoomFocalPoint)) {
+            if (hitTest(e.getX(), e.getY(), zoomFocalPoint)) {
                 mZoomer.startZoom(ZOOM_AMOUNT);
             }
             ViewCompat.postInvalidateOnAnimation(TimeView.this);
@@ -787,16 +867,22 @@ public class TimeView extends View {
         }
 
         @Override
+        public void onLongPress(MotionEvent e) {
+            Utils.e("ACTION_LONGPRESS");
+        }
+
+        @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            Utils.e("ACTION_SCROLL");
+            FLAG_SCROLL = true;
+            _distanceX = distanceX;
+            _distanceY = distanceY;
             float viewportOffsetX = distanceX * mCurrentViewport.width() / mContentRect.width();
             float viewportOffsetY = distanceY * mCurrentViewport.height() / mContentRect.height();
             computeScrollSurfaceSize(mSurfaceSizeBuffer);
             int scrolledX = (int) (mSurfaceSizeBuffer.x
                     * (mCurrentViewport.left + viewportOffsetX - AXIS_X_MIN)
                     / (AXIS_X_MAX - AXIS_X_MIN));
-//            int scrolledY = (int) (mSurfaceSizeBuffer.y
-//                    * (AXIS_Y_MAX - mCurrentViewport.bottom - viewportOffsetY)
-//                    / (AXIS_Y_MAX - AXIS_Y_MIN));
             int scrolledY = (int) (mSurfaceSizeBuffer.y
                     * (mCurrentViewport.top + viewportOffsetY - AXIS_Y_MIN)
                     / (AXIS_Y_MAX - AXIS_Y_MIN));
@@ -809,53 +895,56 @@ public class TimeView extends View {
                     mCurrentViewport.top + viewportOffsetY);
 
             if (canScrollX && scrolledX < 0) {
-                mEdgeEffectLeft.onPull(scrolledX / (float) mContentRect.width());
-                mEdgeEffectLeftActive = true;
+                edgeEffectLeft.onPull(scrolledX / (float) mContentRect.width());
+                edgeEffectLeftActive = true;
             }
             if (canScrollY && scrolledY < 0) {
-                mEdgeEffectTop.onPull(scrolledY / (float) mContentRect.height());
-                mEdgeEffectTopActive = true;
+                edgeEffectTop.onPull(scrolledY / (float) mContentRect.height());
+                edgeEffectTopActive = true;
             }
             if (canScrollX && scrolledX > mSurfaceSizeBuffer.x - mContentRect.width()) {
-                mEdgeEffectRight.onPull((scrolledX - mSurfaceSizeBuffer.x + mContentRect.width())
+                edgeEffectRight.onPull((scrolledX - mSurfaceSizeBuffer.x + mContentRect.width())
                         / (float) mContentRect.width());
-                mEdgeEffectRightActive = true;
+                edgeEffectRightActive = true;
             }
             if (canScrollY && scrolledY > mSurfaceSizeBuffer.y - mContentRect.height()) {
-                mEdgeEffectBottom.onPull((scrolledY - mSurfaceSizeBuffer.y + mContentRect.height())
+                edgeEffectBottom.onPull((scrolledY - mSurfaceSizeBuffer.y + mContentRect.height())
                         / (float) mContentRect.height());
-                mEdgeEffectBottomActive = true;
+                edgeEffectBottomActive = true;
             }
             return true;
         }
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            Utils.e("ACTION_FLING");
+            FLAG_FLING = true;
+            _velocityX = velocityX;
+            _velocityY = velocityY;
             fling((int) -velocityX, (int) -velocityY);
-            isScale = true;
             return true;
         }
     };
 
     private void releaseEdgeEffects() {
-        mEdgeEffectLeftActive
-                = mEdgeEffectTopActive
-                = mEdgeEffectRightActive
-                = mEdgeEffectBottomActive
+        edgeEffectLeftActive
+                = edgeEffectTopActive
+                = edgeEffectRightActive
+                = edgeEffectBottomActive
                 = false;
-        mEdgeEffectLeft.onRelease();
-        mEdgeEffectTop.onRelease();
-        mEdgeEffectRight.onRelease();
-        mEdgeEffectBottom.onRelease();
+        edgeEffectLeft.onRelease();
+        edgeEffectTop.onRelease();
+        edgeEffectRight.onRelease();
+        edgeEffectBottom.onRelease();
     }
 
     private void fling(int velocityX, int velocityY) {
         releaseEdgeEffects();
         computeScrollSurfaceSize(mSurfaceSizeBuffer);
-        mScrollerStartViewport.set(mCurrentViewport);
-        int startX = (int) (mSurfaceSizeBuffer.x * (mScrollerStartViewport.left - AXIS_X_MIN) / (
+        scrollerStartViewport.set(mCurrentViewport);
+        int startX = (int) (mSurfaceSizeBuffer.x * (scrollerStartViewport.left - AXIS_X_MIN) / (
                 AXIS_X_MAX - AXIS_X_MIN));
-        int startY = (int) (mSurfaceSizeBuffer.y * (mScrollerStartViewport.top - AXIS_Y_MIN) / (
+        int startY = (int) (mSurfaceSizeBuffer.y * (scrollerStartViewport.top - AXIS_Y_MIN) / (
                 AXIS_Y_MAX - AXIS_Y_MIN));
         mScroller.forceFinished(true);
         mScroller.fling(
@@ -883,9 +972,6 @@ public class TimeView extends View {
         super.computeScroll();
         boolean needsInvalidate = false;
         if (mScroller.computeScrollOffset()) {
-            // The scroller isn't finished, meaning a fling or programmatic pan operation is
-            // currently active.
-
             computeScrollSurfaceSize(mSurfaceSizeBuffer);
             int currX = mScroller.getCurrX();
             int currY = mScroller.getCurrY();
@@ -897,40 +983,38 @@ public class TimeView extends View {
 
             if (canScrollX
                     && currX < 0
-                    && mEdgeEffectLeft.isFinished()
-                    && !mEdgeEffectLeftActive) {
-                mEdgeEffectLeft.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
-                mEdgeEffectLeftActive = true;
+                    && edgeEffectLeft.isFinished()
+                    && !edgeEffectLeftActive) {
+                edgeEffectLeft.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
+                edgeEffectLeftActive = true;
                 needsInvalidate = true;
             } else if (canScrollX
                     && currX > (mSurfaceSizeBuffer.x - mContentRect.width())
-                    && mEdgeEffectRight.isFinished()
-                    && !mEdgeEffectRightActive) {
-                mEdgeEffectRight.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
-                mEdgeEffectRightActive = true;
+                    && edgeEffectRight.isFinished()
+                    && !edgeEffectRightActive) {
+                edgeEffectRight.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
+                edgeEffectRightActive = true;
                 needsInvalidate = true;
             }
 
             if (canScrollY
                     && currY < 0
-                    && mEdgeEffectTop.isFinished()
-                    && !mEdgeEffectTopActive) {
-                mEdgeEffectTop.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
-                mEdgeEffectTopActive = true;
+                    && edgeEffectTop.isFinished()
+                    && !edgeEffectTopActive) {
+                edgeEffectTop.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
+                edgeEffectTopActive = true;
                 needsInvalidate = true;
             } else if (canScrollY
                     && currY > (mSurfaceSizeBuffer.y - mContentRect.height())
-                    && mEdgeEffectBottom.isFinished()
-                    && !mEdgeEffectBottomActive) {
-                mEdgeEffectBottom.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
-                mEdgeEffectBottomActive = true;
+                    && edgeEffectBottom.isFinished()
+                    && !edgeEffectBottomActive) {
+                edgeEffectBottom.onAbsorb((int) OverScrollerCompat.getCurrVelocity(mScroller));
+                edgeEffectBottomActive = true;
                 needsInvalidate = true;
             }
 
             float currXRange = AXIS_X_MIN + (AXIS_X_MAX - AXIS_X_MIN)
                     * currX / mSurfaceSizeBuffer.x;
-//            float currYRange = AXIS_Y_MAX - (AXIS_Y_MAX - AXIS_Y_MIN)
-//                    * currY / mSurfaceSizeBuffer.y;
             float currYRange = AXIS_Y_MIN + (AXIS_Y_MAX - AXIS_Y_MIN)
                     * currY / mSurfaceSizeBuffer.y;
             setViewportTopLeft(currXRange, currYRange);
@@ -939,17 +1023,17 @@ public class TimeView extends View {
         if (mZoomer.computeZoom()) {
             // Performs the zoom since a zoom is in progress (either programmatically or via
             // double-touch).
-            float newWidth = (1f - mZoomer.getCurrZoom()) * mScrollerStartViewport.width();
-            float newHeight = (1f - mZoomer.getCurrZoom()) * mScrollerStartViewport.height();
-            float pointWithinViewportX = (mZoomFocalPoint.x - mScrollerStartViewport.left)
-                    / mScrollerStartViewport.width();
-            float pointWithinViewportY = (mZoomFocalPoint.y - mScrollerStartViewport.top)
-                    / mScrollerStartViewport.height();
+            float newWidth = (1f - mZoomer.getCurrZoom()) * scrollerStartViewport.width();
+            float newHeight = (1f - mZoomer.getCurrZoom()) * scrollerStartViewport.height();
+            float pointWithinViewportX = (zoomFocalPoint.x - scrollerStartViewport.left)
+                    / scrollerStartViewport.width();
+            float pointWithinViewportY = (zoomFocalPoint.y - scrollerStartViewport.top)
+                    / scrollerStartViewport.height();
 
-            float viewportLeft = mZoomFocalPoint.x - newWidth * pointWithinViewportX;
-            float viewportTop = mZoomFocalPoint.y - newHeight * pointWithinViewportY;
-            float viewportRight = mZoomFocalPoint.x + newWidth * (1 - pointWithinViewportX);
-            float viewportBottom = mZoomFocalPoint.y + newHeight * (1 - pointWithinViewportY);
+            float viewportLeft = zoomFocalPoint.x - newWidth * pointWithinViewportX;
+            float viewportTop = zoomFocalPoint.y - newHeight * pointWithinViewportY;
+            float viewportRight = zoomFocalPoint.x + newWidth * (1 - pointWithinViewportX);
+            float viewportBottom = zoomFocalPoint.y + newHeight * (1 - pointWithinViewportY);
             if (isScaleYAvailable(viewportBottom, viewportTop)) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
                 mCurrentViewport.top = viewportTop;
                 mCurrentViewport.bottom = viewportBottom;
@@ -967,26 +1051,11 @@ public class TimeView extends View {
         }
     }
 
-    /**
-     * Sets the current viewport (defined by {@link #mCurrentViewport}) to the given
-     * X and Y positions. Note that the Y value represents the topmost pixel position, and thus
-     * the bottom of the {@link #mCurrentViewport} rectangle. For more details on why top and
-     * bottom are flipped, see {@link #mCurrentViewport}.
-     */
     private void setViewportTopLeft(float x, float y) {
-        /**
-         * Constrains within the scroll range. The scroll range is simply the viewport extremes
-         * (AXIS_X_MAX, etc.) minus the viewport size. For example, if the extrema were 0 and 10,
-         * and the viewport size was 2, the scroll range would be 0 to 8.
-         */
-
         float curWidth = mCurrentViewport.width();
         float curHeight = mCurrentViewport.height();
         x = Math.max(AXIS_X_MIN, Math.min(x, AXIS_X_MAX - curWidth));
-//        y = Math.max(AXIS_Y_MIN + curHeight, Math.min(y, AXIS_Y_MAX));
-        y = Math.max(AXIS_Y_MIN, Math.min(y, AXIS_Y_MAX- curHeight));
-
-//        mCurrentViewport.set(x, y - curHeight, x + curWidth, y);
+        y = Math.max(AXIS_Y_MIN, Math.min(y, AXIS_Y_MAX - curHeight));
         mCurrentViewport.set(x, y, x + curWidth, y + curHeight);
         ViewCompat.postInvalidateOnAnimation(this);
     }
@@ -1019,10 +1088,10 @@ public class TimeView extends View {
      * Smoothly zooms the chart in one step.
      */
     public void zoomIn() {
-        mScrollerStartViewport.set(mCurrentViewport);
+        scrollerStartViewport.set(mCurrentViewport);
         mZoomer.forceFinished(true);
         mZoomer.startZoom(ZOOM_AMOUNT);
-        mZoomFocalPoint.set(
+        zoomFocalPoint.set(
                 (mCurrentViewport.right + mCurrentViewport.left) / 2,
                 (mCurrentViewport.bottom + mCurrentViewport.top) / 2);
         ViewCompat.postInvalidateOnAnimation(this);
@@ -1032,10 +1101,10 @@ public class TimeView extends View {
      * Smoothly zooms the chart out one step.
      */
     public void zoomOut() {
-        mScrollerStartViewport.set(mCurrentViewport);
+        scrollerStartViewport.set(mCurrentViewport);
         mZoomer.forceFinished(true);
         mZoomer.startZoom(-ZOOM_AMOUNT);
-        mZoomFocalPoint.set(
+        zoomFocalPoint.set(
                 (mCurrentViewport.right + mCurrentViewport.left) / 2,
                 (mCurrentViewport.bottom + mCurrentViewport.top) / 2);
         ViewCompat.postInvalidateOnAnimation(this);
@@ -1209,6 +1278,8 @@ public class TimeView extends View {
             return String.format("%02d:%02d", minutes / 60, minutes % 60);
         }
     }
+
+
 }
 
 
@@ -1320,8 +1391,6 @@ class Zoomer {
     }
 }
 
-
-
 /**
  * A utility class for using {@link android.widget.OverScroller} in a backward-compatible fashion.
  */
@@ -1344,7 +1413,6 @@ class OverScrollerCompat {
         }
     }
 }
-
 
 /**
  * A utility class for using {@link android.view.ScaleGestureDetector} in a backward-compatible
@@ -1382,6 +1450,94 @@ class ScaleGestureDetectorCompat {
     }
 }
 
+/**
+ * ObjectData class
+ */
+class ObjectData {
+    private static final String TAG = "ObjectData";
+    private static ObjectData objectData = null;
+    private float height = 0, axisx = -1, axisy = -2;
+    private float dataThickness = 1;
+    private String dataColor = "red";
+    private Paint dataPaint;
 
+    public static ObjectData getInstance() {
+        if (objectData == null) return new ObjectData();
+        return objectData;
+    }
 
+    private ObjectData() {
+        initPaint();
+    }
+
+    private void initPaint() {
+        dataPaint = new Paint();
+        dataPaint.setStrokeWidth(dataThickness);
+        dataPaint.setColor(Color.parseColor(dataColor));
+        dataPaint.setStyle(Paint.Style.FILL);
+        dataPaint.setAntiAlias(true);
+        dataPaint.setAlpha(50);
+    }
+
+    public void Draw(Canvas canvas) {
+        if (isCreated()) {
+            int clipRestoreCount = canvas.save();
+            canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
+            canvas.restoreToCount(clipRestoreCount);
+        }
+    }
+
+    public float getHeight() {
+        return height;
+    }
+
+    public void setHeight(float height) {
+        if ((getDrawY(axisy) + height) <= TimeView.mContentRect.bottom)
+            this.height = height;
+    }
+
+    private float getDrawY(float y) {
+        return TimeView.mContentRect.top
+                + TimeView.mContentRect.height()
+                * ((y - TimeView.mCurrentViewport.top) / TimeView.mCurrentViewport.height());
+    }
+
+    public void setAxisy(float eventY) {
+        if ((eventY + height) <= TimeView.mContentRect.bottom)
+            this.axisy = TimeView.mCurrentViewport.top + (eventY - TimeView.mContentRect.top) / TimeView.mContentRect.height() * TimeView.mCurrentViewport.height();
+    }
+
+    public void setHeight_Axisy(float height, float eventY) {
+        setHeight(height);
+        setAxisy(eventY);
+    }
+
+    public boolean isTouched(float eventY) {
+        if(isCreated())
+        if (Math.abs(eventY - getDrawY(axisy)) <= height) return true;
+        Log.e(TAG, "isTouched=false");
+        return false;
+    }
+
+    public void releaseObj() {
+        height = axisx = axisy = 0;
+    }
+
+    public float getAxisy() {
+        return axisy;
+    }
+
+    public boolean isCreated() {
+        if (height > 0 && axisy!=-2) {
+//            Log.e(TAG, "isCreated");
+            return true;
+        }
+        return false;
+    }
+
+    public void fixBlock(Canvas canvas, float y) {
+        axisy = y;
+        Draw(canvas);
+    }
+}
 

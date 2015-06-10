@@ -1,4 +1,4 @@
-package cvnhan.android.calendarsample;
+package cvnhan.android.library;
 
 import android.animation.Keyframe;
 import android.animation.ObjectAnimator;
