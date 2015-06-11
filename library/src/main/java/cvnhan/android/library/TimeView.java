@@ -21,12 +21,10 @@ import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.OverScroller;
@@ -55,41 +53,24 @@ public class TimeView extends View {
      */
     private static final float ZOOM_AMOUNT = 0.25f;
 
-    // Viewport extremes. See mCurrentViewport for a discussion of the viewport.
     private static final float AXIS_X_MIN = -1f;
     private static final float AXIS_X_MAX = 1f;
     private static final float AXIS_Y_MIN = -1f;
     private static final float AXIS_Y_MAX = 1f;
 
-    /**
-     * The current viewport. This rectangle represents the currently visible chart domain
-     * and range. The currently visible chart X values are from this rectangle's left to its right.
-     * The currently visible chart Y values are from this rectangle's top to its bottom.
-     * <p/>
-     * Note that this rectangle's top is actually the smaller Y value, and its bottom is the larger
-     * Y value. Since the chart is drawn onscreen in such a way that chart Y values increase
-     * towards the top of the screen (decreasing pixel Y positions), this rectangle's "top" is drawn
-     * above this rectangle's "bottom" value.
-     *
-     * @see #mContentRect
-     */
     public static RectF mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
 
-    /**
-     * The current destination rectangle (in pixel coordinates) into which the chart data should
-     * be drawn. Chart labels are drawn outside this area.
-     *
-     * @see #mCurrentViewport
-     */
     public static Rect mContentRect = new Rect();
-
+    public static final int MINCHARTSIZE=100;
     //Define custom
     private static float cellMaxWidth = 90;
     private static float cellMaxHeight = 80;
 
     private static int numColum = 1;
-    private static int numRow = 50;
-    private static boolean hasHeaderRow = true;
+    private static int numRow = 32;
+    private static int startHour=540; //9:00
+    private static int blockHour=15; //15 minutes
+    private static boolean hasHeaderRow = false;
     private static boolean hasHeaderColum = true;
 
     private static double minDeltaH = 1, maxDeltaH = 1;
@@ -111,16 +92,16 @@ public class TimeView extends View {
 
     //Define Paint
     //HeaderRow
-    private float labelHeaderRowTextSize = 14;
-    private int labelHeaderRowSeparation = 10;
+    private float labelHeaderRowTextSize = 8;
+    private int labelHeaderRowSeparation = 1;
     private int labelHeaderRowTextColor = 0x000000;
     private int labelHeaderRowHeight;
     private int maxLabelHeaderRowWidth;
     private Paint headerRowPaint;
 
     //HeaderCol
-    private float labelHeaderColTextSize = 14;
-    private int labelHeaderColSeparation = 10;
+    private float labelHeaderColTextSize = 8;
+    private int labelHeaderColSeparation = 1;
     private int labelHeaderColTextColor = 0x000000;
     private int labelHeaderColHeight;
     private int maxLabelHeaderColWidth;
@@ -146,8 +127,6 @@ public class TimeView extends View {
 
     private float _downEventX, _downEventY, _moveEventX, _moveEventY,
             _distanceX, _distanceY, _spanX, _spanY, _velocityX, _velocityY, _showPressX, _showPressY, _longPressX, _longPressY, _deltaMove;
-    private CheckForTap pendingCheckForTap;
-    private CheckForMove pendingCheckForMove;
     private boolean FLAG_DOWN = false;
     private boolean FLAG_MOVE = false;
     private boolean FLAG_UP = false;
@@ -157,9 +136,9 @@ public class TimeView extends View {
     private boolean FLAG_FLING = false;
     private boolean FLAG_LONGPRESS = false;
     private boolean FLAG_SHOWPRESS = false;
+    private boolean FLAG_RESTORE = false;
 
     private ObjectData objectData;
-    private static final float deltaDetectMove = 15;
 
     // Edge effect / overscroll tracking objects.
     private EdgeEffectCompat edgeEffectTop;
@@ -245,6 +224,10 @@ public class TimeView extends View {
      * (Re)initializes {@link Paint} objects based on current attribute values.
      */
     private void initPaints() {
+        mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
+        mContentRect = new Rect();
+        density = getResources().getDisplayMetrics().density;
+
         headerRowPaint = new Paint();
         headerRowPaint.setAntiAlias(true);
         headerRowPaint.setTextSize(labelHeaderRowTextSize);
@@ -278,10 +261,11 @@ public class TimeView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
+
         mContentRect.set(
-                getPaddingLeft() + maxLabelHeaderColWidth + labelHeaderColSeparation,
-                getPaddingTop() + getPaddingTop() + maxLabelHeaderRowWidth
-                        + labelHeaderRowSeparation,
+                getPaddingLeft() + ((hasHeaderColum) ? (maxLabelHeaderColWidth + labelHeaderColSeparation) : 0),
+                getPaddingTop() + ((hasHeaderRow) ? (+maxLabelHeaderRowWidth
+                        + labelHeaderRowSeparation) : 0),
                 getWidth() - getPaddingRight(),
                 getHeight() - getPaddingBottom());
         objectData = ObjectData.getInstance();
@@ -290,7 +274,7 @@ public class TimeView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int minChartSize = getResources().getDimensionPixelSize(R.dimen.min_chart_size);
+        int minChartSize = MINCHARTSIZE;
         setMeasuredDimension(
                 Math.max(getSuggestedMinimumWidth(),
                         resolveSize(minChartSize + getPaddingLeft() + maxLabelHeaderColWidth
@@ -486,9 +470,9 @@ public class TimeView extends View {
         for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
             outStops.stops[i] = (float) f;
             if (i == 0)
-                outStops.minutes[i] = 870;
+                outStops.minutes[i] = startHour;
             else
-                outStops.minutes[i] = outStops.minutes[i - 1] + 15;
+                outStops.minutes[i] = outStops.minutes[i - 1] + blockHour;
         }
     }
 
@@ -670,33 +654,28 @@ public class TimeView extends View {
         final int action = MotionEventCompat.getActionMasked(event);
         switch (action) {
             case (MotionEvent.ACTION_DOWN):
-                Utils.e("ACTION_DOWN");
+//                Utils.e("ACTION_DOWN");
                 FLAG_DOWN = true;
                 _downEventX = event.getX();
                 _downEventY = event.getY();
-                if (pendingCheckForTap == null) {
-                    pendingCheckForTap = new CheckForTap();
-                }
-                handleOnTouchDown(event);
                 break;
             case (MotionEvent.ACTION_MOVE):
-                Utils.e("ACTION_MOVE");
+//                Utils.e("ACTION_MOVE");
                 FLAG_MOVE = true;
                 _moveEventX = event.getX();
                 _moveEventY = event.getY();
-                if (pendingCheckForMove == null) {
-                    pendingCheckForMove = new CheckForMove();
-                }
                 handleOnMove(event);
                 break;
             case (MotionEvent.ACTION_UP):
-                Utils.e("ACTION_UP");
+//                Utils.e("ACTION_UP");
                 FLAG_UP = true;
-
+                objectData.setFlagMove(false);
                 int index = getIndexy(objectData.getAxisy());
                 if (index != -1) {
-                    objectData.fixBlock( yStopsBuffer.stops[index]);
+                    objectData.fixBlock(yStopsBuffer.stops[index]);
                 }
+                invalidate();
+                releaseFlagTouch();
                 break;
             default:
                 break;
@@ -706,69 +685,37 @@ public class TimeView extends View {
         if (!scaleGestureDetector.isInProgress()) {
             retVal = gestureDetector.onTouchEvent(event) || retVal;
         }
-        invalidate();
+
         return retVal || super.onTouchEvent(event);
     }
 
-    public void handleOnTouchDown(MotionEvent event) {
-//        postDelayed(pendingCheckForTap, ViewConfiguration.getTapTimeout());
+    public void handleOnPress(MotionEvent event) {
+        if (objectData.isTouched(_downEventY) == false) {
+            objectData.setHeight(getBlockHeight());
+            objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
+
+            int index = getIndexy(objectData.getAxisy());
+            if (index != -1)
+                objectData.fixBlock(yStopsBuffer.stops[index]);
+
+        } else {
+            objectData.releaseObj();
+        }
+        invalidate();
     }
 
     private void handleOnMove(MotionEvent event) {
-
-        if (FLAG_SHOWPRESS || FLAG_LONGPRESS)
-            if (objectData.isTouched(_moveEventY)) {
-//            objectData.setHeight(getBlockHeight() * 4);
-                objectData.setAxisy(Math.max(_moveEventY - _deltaMove, mContentRect.top));
-            }
-//        postDelayed(pendingCheckForMove, ViewConfiguration.getTapTimeout());
-    }
-
-    private void removeTapCallback() {
-        if (pendingCheckForTap != null) {
-            removeCallbacks(pendingCheckForTap);
+        if (FLAG_SHOWPRESS) {
+            objectData.setAxisy(Math.max(_moveEventY - _deltaMove, mContentRect.top));
+        }else{
+            objectData.setFlagMove(false);
         }
+        invalidate();
     }
 
-    private void removeMoveCallback() {
-        if (pendingCheckForMove != null) {
-            removeCallbacks(pendingCheckForMove);
-        }
-    }
-
-    private final class CheckForTap implements Runnable {
-        public void run() {
-            Log.e(TAG, FLAG_DOWN + " " + FLAG_MOVE + " " + FLAG_UP);
-            Log.e(TAG, ViewConfiguration.getPressedStateDuration() + " " + ViewConfiguration.getTapTimeout());
-            if (FLAG_MOVE || FLAG_SCROLL) return;
-            if (FLAG_DOWN && FLAG_UP) {
-                if (objectData.isTouched(_downEventY) == false) {
-                    objectData.setHeight(getBlockHeight() * 4);
-                    objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
-
-
-                } else {
-                    objectData.releaseObj();
-                }
-                releaseFlagTouch();
-            }
-//            drawObjectbyEvent(_downEventX, _downEventY);
-        }
-    }
-
-    private final class CheckForMove implements Runnable {
-        public void run() {
-//            removeTapCallback();
-            if (FLAG_SCROLL || FLAG_SCALE) return;
-//            if (Math.abs(_moveEventX - _downEventX) > deltaDetectMove || Math.abs(_moveEventY - _downEventY) > deltaDetectMove)
-//                return;
-//            objectData.
-//                    drawObjectbyEvent(_moveEventX, _moveEventY);
-        }
-    }
 
     private void releaseFlagTouch() {
-        FLAG_DOWN = FLAG_MOVE = FLAG_SCROLL = FLAG_SCALE = FLAG_UP = FLAG_FLING = FLAG_DOUBLETAP = false;
+        FLAG_DOWN = FLAG_MOVE = FLAG_SCROLL = FLAG_SCALE = FLAG_UP = FLAG_FLING = FLAG_DOUBLETAP = FLAG_LONGPRESS = FLAG_SHOWPRESS = false;
     }
 
     /**
@@ -791,7 +738,7 @@ public class TimeView extends View {
         public boolean onScale(ScaleGestureDetector scaleGestureDetector) {
             float spanX = ScaleGestureDetectorCompat.getCurrentSpanX(scaleGestureDetector);
             float spanY = ScaleGestureDetectorCompat.getCurrentSpanY(scaleGestureDetector);
-            Utils.e("ACTION_onScale");
+//            Utils.e("ACTION_SCALE");
             FLAG_SCALE = true;
             _spanX = spanX;
             _spanY = spanY;
@@ -820,11 +767,6 @@ public class TimeView extends View {
             lastSpanX = spanX;
             lastSpanY = spanY;
             return true;
-        }
-
-        @Override
-        public void onScaleEnd(ScaleGestureDetector detector) {
-            super.onScaleEnd(detector);
         }
     };
 
@@ -858,37 +800,28 @@ public class TimeView extends View {
 
         @Override
         public boolean onSingleTapUp(MotionEvent e) {
-            Utils.e("onSingleTapUp");
-            if (objectData.isTouched(_downEventY) == false) {
-                objectData.setHeight(getBlockHeight() * 4);
-                objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
-
-                int index = getIndexy(objectData.getAxisy());
-                if (index != -1)
-                    objectData.fixBlock(yStopsBuffer.stops[index]);
-
-            } else {
-                objectData.releaseObj();
-            }
-//            invalidate();
-            objectData.Draw(canvas);
+//            Utils.e("onSingleTapUp");
+            handleOnPress(e);
+            invalidate();
             return true;
         }
 
         @Override
         public void onShowPress(MotionEvent e) {
-            Utils.e("onShowPress");
+//            Utils.e("onShowPress");
             if (objectData.isTouched(e.getY())) {
                 FLAG_SHOWPRESS = true;
                 _showPressX = e.getX();
                 _showPressY = e.getY();
                 _deltaMove = _showPressY - getDrawY(objectData.getAxisy());
+                objectData.setFlagMove(true);
+                invalidate();
             }
         }
 
         @Override
         public void onLongPress(MotionEvent e) {
-            Utils.e("ACTION_LONGPRESS");
+//            Utils.e("ACTION_LONGPRESS");
             if (objectData.isTouched(e.getY())) {
                 FLAG_LONGPRESS = true;
                 _longPressX = e.getX();
@@ -898,8 +831,10 @@ public class TimeView extends View {
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
-            Utils.e("ACTION_DOUBLETAP");
+//            Utils.e("ACTION_DOUBLETAP");
             FLAG_DOUBLETAP = true;
+            //Disable double tap
+            if (FLAG_DOUBLETAP) return false;
             mZoomer.forceFinished(true);
             if (hitTest(e.getX(), e.getY(), zoomFocalPoint)) {
                 mZoomer.startZoom(ZOOM_AMOUNT);
@@ -910,7 +845,7 @@ public class TimeView extends View {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            Utils.e("ACTION_SCROLL");
+//            Utils.e("ACTION_SCROLL");
             FLAG_SCROLL = true;
             FLAG_LONGPRESS = FLAG_SHOWPRESS = false;
             _distanceX = distanceX;
@@ -955,7 +890,7 @@ public class TimeView extends View {
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-            Utils.e("ACTION_FLING");
+//            Utils.e("ACTION_FLING");
             FLAG_FLING = true;
             _velocityX = velocityX;
             _velocityY = velocityY;
@@ -1072,7 +1007,8 @@ public class TimeView extends View {
             float viewportTop = zoomFocalPoint.y - newHeight * pointWithinViewportY;
             float viewportRight = zoomFocalPoint.x + newWidth * (1 - pointWithinViewportX);
             float viewportBottom = zoomFocalPoint.y + newHeight * (1 - pointWithinViewportY);
-            if (isScaleYAvailable(viewportBottom, viewportTop)) { // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
+            // neu do rong cell lon hon do rong dinh nghia thi khong cho phong to nua
+            if (isScaleYAvailable(viewportBottom, viewportTop)) {
                 mCurrentViewport.top = viewportTop;
                 mCurrentViewport.bottom = viewportBottom;
             }
@@ -1121,6 +1057,20 @@ public class TimeView extends View {
         constrainViewport();
         ViewCompat.postInvalidateOnAnimation(this);
     }
+
+    /**
+     * Smoothly zooms the chart in one step.
+     */
+    public void zoomMaximum() {
+        scrollerStartViewport.set(mCurrentViewport);
+        mZoomer.forceFinished(true);
+        mZoomer.startZoom(ZOOM_AMOUNT * 3f);
+        zoomFocalPoint.set(
+                (mCurrentViewport.right + mCurrentViewport.left) / 2,
+                (mCurrentViewport.bottom + mCurrentViewport.top) / 2);
+        ViewCompat.postInvalidateOnAnimation(this);
+    }
+
 
     /**
      * Smoothly zooms the chart in one step.
@@ -1198,7 +1148,7 @@ public class TimeView extends View {
     }
 
     public void setGridThickness(float gridThickness) {
-        gridThickness = gridThickness;
+        this.gridThickness = gridThickness;
         initPaints();
         ViewCompat.postInvalidateOnAnimation(this);
     }
@@ -1208,7 +1158,7 @@ public class TimeView extends View {
     }
 
     public void setGridColor(int gridColor) {
-        gridColor = gridColor;
+        this.gridColor = gridColor;
         initPaints();
         ViewCompat.postInvalidateOnAnimation(this);
     }
@@ -1249,11 +1199,9 @@ public class TimeView extends View {
             super.onRestoreInstanceState(state);
             return;
         }
-
         SavedState ss = (SavedState) state;
-        super.onRestoreInstanceState(ss.getSuperState());
-
         mCurrentViewport = ss.viewport;
+        super.onRestoreInstanceState(ss.getSuperState());
     }
 
     /**
@@ -1277,7 +1225,7 @@ public class TimeView extends View {
 
         @Override
         public String toString() {
-            return "Calendar.SavedState{"
+            return "TimeView.SavedState{"
                     + Integer.toHexString(System.identityHashCode(this))
                     + " viewport=" + viewport.toString() + "}";
         }
@@ -1499,6 +1447,8 @@ class ObjectData {
     private String dataColor = "red";
     private Paint dataPaint;
 
+    private Paint movePaint;
+    private boolean flagMove=false;
     public static ObjectData getInstance() {
         if (objectData == null) return new ObjectData();
         return objectData;
@@ -1515,12 +1465,25 @@ class ObjectData {
         dataPaint.setStyle(Paint.Style.FILL);
         dataPaint.setAntiAlias(true);
         dataPaint.setAlpha(50);
+
+        movePaint = new Paint();
+        movePaint.setStrokeWidth(dataThickness * 2);
+        movePaint.setColor(Color.parseColor(dataColor));
+        movePaint.setStyle(Paint.Style.FILL_AND_STROKE);
+        movePaint.setAntiAlias(true);
+        movePaint.setAlpha(100);
+        movePaint.setStrokeJoin(Paint.Join.ROUND);
+        // radius blur=10, x, y-offset=2, color=black
+        movePaint.setShadowLayer(5.0f, -5.0f, 5.0f, Color.BLACK);
     }
 
     public void Draw(Canvas canvas) {
         if (isCreated()) {
 //            int clipRestoreCount = canvas.save();
             canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
+            if(flagMove){
+                canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), movePaint);
+            }
 //            canvas.restoreToCount(clipRestoreCount);
         }
     }
@@ -1545,15 +1508,14 @@ class ObjectData {
             this.axisy = TimeView.mCurrentViewport.top + (eventY - TimeView.mContentRect.top) / TimeView.mContentRect.height() * TimeView.mCurrentViewport.height();
     }
 
-    public void setHeight_Axisy(float height, float eventY) {
-        setHeight(height);
-        setAxisy(eventY);
+    public void setFlagMove(boolean move){
+        flagMove=move;
     }
 
     public boolean isTouched(float eventY) {
         if (isCreated())
             if (Math.abs(eventY - getDrawY(axisy)) <= height) return true;
-        Log.e(TAG, "isTouched=false");
+//        Log.e(TAG, "isTouched=false");
         return false;
     }
 

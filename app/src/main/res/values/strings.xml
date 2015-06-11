@@ -3,7 +3,6 @@
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
-    <string name="app_description">A sample application that allows you to navigate a simple line graph using touch gestures.</string>
     <string name="action_zoom_in">Demo zoom in</string>
     <string name="action_zoom_out">Demo zoom out</string>
     <string name="action_pan_left">Demo pan left</string>

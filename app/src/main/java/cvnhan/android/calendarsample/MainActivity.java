@@ -1,28 +1,131 @@
 package cvnhan.android.calendarsample;
 
 import android.app.Activity;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import butterknife.ButterKnife;
+import butterknife.InjectView;
+import cvnhan.android.calendarsample.model.ServiceAdapter;
+import cvnhan.android.calendarsample.model.ServiceInfo;
+import cvnhan.android.calendarsample.model.StaffAdapter;
+import cvnhan.android.calendarsample.model.StaffInfo;
 import cvnhan.android.library.TimeView;
 
 
-public class MainActivity  extends Activity {
-    private TimeView mGraphView;
+public class MainActivity extends Activity {
+
+    @InjectView(R.id.serviceView)
+    RecyclerView serviceView;
+
+    @InjectView(R.id.staffView)
+    RecyclerView staffView;
+
+    @InjectView(R.id.timeView)
+    TimeView mGraphView;
+
+    private ServiceAdapter serviceAdapter;
+    private StaffAdapter staffAdapter;
+
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mGraphView = (TimeView) findViewById(R.id.chart);
+        ButterKnife.inject(this);
+        initView();
     }
 
+    private void initView() {
+        LinearLayoutManager llm = new LinearLayoutManager(this);
+        llm.setOrientation(LinearLayoutManager.VERTICAL);
+
+        serviceView.setHasFixedSize(true);
+        serviceView.setLayoutManager(llm);
+        serviceAdapter = new ServiceAdapter(createServiceList());
+        serviceView.setAdapter(serviceAdapter);
+        serviceView.getItemAnimator().setSupportsChangeAnimations(true);
+        serviceView.setItemAnimator(new DefaultItemAnimator());
+
+        llm = new LinearLayoutManager(this);
+        llm.setOrientation(LinearLayoutManager.VERTICAL);
+        staffView.setHasFixedSize(true);
+        staffView.setLayoutManager(llm);
+        staffAdapter = new StaffAdapter(createStaffList());
+        staffView.setAdapter(staffAdapter);
+        staffView.getItemAnimator().setSupportsChangeAnimations(true);
+
+        mGraphView.zoomMaximum();
+    }
+
+    private List<ServiceInfo> createServiceList() {
+        List<ServiceInfo> result = new ArrayList<>();
+        ServiceInfo item = new ServiceInfo("Massage", "(30 m)");
+        result.add(item);
+        item = new ServiceInfo("Shampoo, blow dry", "(45 m)");
+        result.add(item);
+        item = new ServiceInfo("Spa", "(90 m)");
+        result.add(item);
+        item = new ServiceInfo("Nail", "(45 m)");
+        result.add(item);
+        item = new ServiceInfo("Washing, Conditioning & Softening", "(90 m)");
+        result.add(item);
+        item = new ServiceInfo("Tia long", "(30 m)");
+        result.add(item);
+        item = new ServiceInfo("Nho toc ngua", "(45 m)");
+        result.add(item);
+        item = new ServiceInfo("Suong", "(45 m)");
+        result.add(item);
+        item = new ServiceInfo("Hehe", "(60 m)");
+        result.add(item);
+        return result;
+    }
+
+    private List<StaffInfo> createStaffList(){
+        List<StaffInfo> result=new ArrayList<>();
+        StaffInfo
+                item= new StaffInfo("Anyone", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar0));
+        result.add(item);
+        item= new StaffInfo("Mr. Free", BitmapFactory.decodeResource(this.getResources(), R.drawable.test));
+        result.add(item);
+        item= new StaffInfo("Jackit", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar1));
+        result.add(item);
+        item= new StaffInfo("Jonny", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar2));
+        result.add(item);
+        item= new StaffInfo("A Phuc", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar3));
+        result.add(item);
+        item= new StaffInfo("A Binh", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar4));
+        result.add(item);
+        item= new StaffInfo("A Lam", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("A Hung", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("A Thang", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("A Vuong", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("A Son", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("A Sang", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        item= new StaffInfo("C Thuy", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        result.add(item);
+        return result;
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {

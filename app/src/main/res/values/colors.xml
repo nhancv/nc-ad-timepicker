@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="main_color">#f6921e</color>
+    <color name="main_line">#cccccc</color>
+    <color name="main_green">#6dc900</color>
+    <color name="main_red">#dc0000</color>
+    <color name="main_gray">#ddddd0</color>
+    <color name="main_header">#f0f0f0</color>
+    <color name="main_cell">#FFFFCC</color>
+
+
+</resources>
