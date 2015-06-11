@@ -26,6 +26,7 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.OverScroller;
@@ -143,7 +144,8 @@ public class TimeView extends View {
     private PointF zoomFocalPoint = new PointF();
     private RectF scrollerStartViewport = new RectF(); // Used only for zooms and flings.
 
-    private float _downEventX, _downEventY, _moveEventX, _moveEventY, _distanceX, _distanceY, _spanX, _spanY, _velocityX, _velocityY;
+    private float _downEventX, _downEventY, _moveEventX, _moveEventY,
+            _distanceX, _distanceY, _spanX, _spanY, _velocityX, _velocityY, _showPressX, _showPressY, _longPressX, _longPressY, _deltaMove;
     private CheckForTap pendingCheckForTap;
     private CheckForMove pendingCheckForMove;
     private boolean FLAG_DOWN = false;
@@ -153,6 +155,8 @@ public class TimeView extends View {
     private boolean FLAG_SCROLL = false;
     private boolean FLAG_DOUBLETAP = false;
     private boolean FLAG_FLING = false;
+    private boolean FLAG_LONGPRESS = false;
+    private boolean FLAG_SHOWPRESS = false;
 
     private ObjectData objectData;
     private static final float deltaDetectMove = 15;
@@ -689,40 +693,34 @@ public class TimeView extends View {
                 Utils.e("ACTION_UP");
                 FLAG_UP = true;
 
-                int index=getIndexy(objectData.getAxisy());
-                if(index!=-1)
-                objectData.fixBlock(canvas, yStopsBuffer.stops[index]);
-                invalidate();
-                releaseFlagTouch();
+                int index = getIndexy(objectData.getAxisy());
+                if (index != -1) {
+                    objectData.fixBlock( yStopsBuffer.stops[index]);
+                }
                 break;
             default:
                 break;
         }
+
         boolean retVal = scaleGestureDetector.onTouchEvent(event);
         if (!scaleGestureDetector.isInProgress()) {
             retVal = gestureDetector.onTouchEvent(event) || retVal;
         }
+        invalidate();
         return retVal || super.onTouchEvent(event);
     }
 
     public void handleOnTouchDown(MotionEvent event) {
-        if (objectData.isTouched(_downEventY)==false) {
-            objectData.setHeight(getBlockHeight() * 4);
-            objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
-        }else{
-            objectData.releaseObj();
-        }
 //        postDelayed(pendingCheckForTap, ViewConfiguration.getTapTimeout());
     }
 
     private void handleOnMove(MotionEvent event) {
-//        removeTapCallback();
-//        if (objectData.isTouched(_moveEventY)) {
-//        objectData.setHeight(getBlockHeight() * 4);
-//        objectData.setAxisy(Math.max(_moveEventY, mContentRect.top));
-//        invalidate();
-//        }
 
+        if (FLAG_SHOWPRESS || FLAG_LONGPRESS)
+            if (objectData.isTouched(_moveEventY)) {
+//            objectData.setHeight(getBlockHeight() * 4);
+                objectData.setAxisy(Math.max(_moveEventY - _deltaMove, mContentRect.top));
+            }
 //        postDelayed(pendingCheckForMove, ViewConfiguration.getTapTimeout());
     }
 
@@ -740,16 +738,20 @@ public class TimeView extends View {
 
     private final class CheckForTap implements Runnable {
         public void run() {
-            if (FLAG_MOVE) return;
-//            if (Math.abs(_moveEventX - _downEventX) > deltaDetectMove || Math.abs(_moveEventY - _downEventY) > deltaDetectMove)
-//                return;
+            Log.e(TAG, FLAG_DOWN + " " + FLAG_MOVE + " " + FLAG_UP);
+            Log.e(TAG, ViewConfiguration.getPressedStateDuration() + " " + ViewConfiguration.getTapTimeout());
+            if (FLAG_MOVE || FLAG_SCROLL) return;
+            if (FLAG_DOWN && FLAG_UP) {
+                if (objectData.isTouched(_downEventY) == false) {
+                    objectData.setHeight(getBlockHeight() * 4);
+                    objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
 
-//            if (objectData.isTouched(_downEventY)) {
-//                objectData.releaseObj();
-//            } else {
-//                objectData.setHeight(getBlockHeight() * 4);
-//                objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
-//            }
+
+                } else {
+                    objectData.releaseObj();
+                }
+                releaseFlagTouch();
+            }
 //            drawObjectbyEvent(_downEventX, _downEventY);
         }
     }
@@ -855,6 +857,46 @@ public class TimeView extends View {
         }
 
         @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            Utils.e("onSingleTapUp");
+            if (objectData.isTouched(_downEventY) == false) {
+                objectData.setHeight(getBlockHeight() * 4);
+                objectData.setAxisy(Math.max(_downEventY, mContentRect.top));
+
+                int index = getIndexy(objectData.getAxisy());
+                if (index != -1)
+                    objectData.fixBlock(yStopsBuffer.stops[index]);
+
+            } else {
+                objectData.releaseObj();
+            }
+//            invalidate();
+            objectData.Draw(canvas);
+            return true;
+        }
+
+        @Override
+        public void onShowPress(MotionEvent e) {
+            Utils.e("onShowPress");
+            if (objectData.isTouched(e.getY())) {
+                FLAG_SHOWPRESS = true;
+                _showPressX = e.getX();
+                _showPressY = e.getY();
+                _deltaMove = _showPressY - getDrawY(objectData.getAxisy());
+            }
+        }
+
+        @Override
+        public void onLongPress(MotionEvent e) {
+            Utils.e("ACTION_LONGPRESS");
+            if (objectData.isTouched(e.getY())) {
+                FLAG_LONGPRESS = true;
+                _longPressX = e.getX();
+                _longPressY = e.getY();
+            }
+        }
+
+        @Override
         public boolean onDoubleTap(MotionEvent e) {
             Utils.e("ACTION_DOUBLETAP");
             FLAG_DOUBLETAP = true;
@@ -867,14 +909,10 @@ public class TimeView extends View {
         }
 
         @Override
-        public void onLongPress(MotionEvent e) {
-            Utils.e("ACTION_LONGPRESS");
-        }
-
-        @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
             Utils.e("ACTION_SCROLL");
             FLAG_SCROLL = true;
+            FLAG_LONGPRESS = FLAG_SHOWPRESS = false;
             _distanceX = distanceX;
             _distanceY = distanceY;
             float viewportOffsetX = distanceX * mCurrentViewport.width() / mContentRect.width();
@@ -1481,9 +1519,9 @@ class ObjectData {
 
     public void Draw(Canvas canvas) {
         if (isCreated()) {
-            int clipRestoreCount = canvas.save();
+//            int clipRestoreCount = canvas.save();
             canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
-            canvas.restoreToCount(clipRestoreCount);
+//            canvas.restoreToCount(clipRestoreCount);
         }
     }
 
@@ -1513,8 +1551,8 @@ class ObjectData {
     }
 
     public boolean isTouched(float eventY) {
-        if(isCreated())
-        if (Math.abs(eventY - getDrawY(axisy)) <= height) return true;
+        if (isCreated())
+            if (Math.abs(eventY - getDrawY(axisy)) <= height) return true;
         Log.e(TAG, "isTouched=false");
         return false;
     }
@@ -1528,16 +1566,15 @@ class ObjectData {
     }
 
     public boolean isCreated() {
-        if (height > 0 && axisy!=-2) {
+        if (height > 0 && axisy != -2) {
 //            Log.e(TAG, "isCreated");
             return true;
         }
         return false;
     }
 
-    public void fixBlock(Canvas canvas, float y) {
+    public void fixBlock(float y) {
         axisy = y;
-        Draw(canvas);
     }
 }
 
