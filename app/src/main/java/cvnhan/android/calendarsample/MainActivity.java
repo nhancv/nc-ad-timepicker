@@ -8,17 +8,20 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
-import cvnhan.android.calendarsample.model.ServiceAdapter;
+import butterknife.OnClick;
+import cvnhan.android.calendarsample.adapter.ServiceAdapter;
+import cvnhan.android.calendarsample.adapter.StaffAdapter;
 import cvnhan.android.calendarsample.model.ServiceInfo;
-import cvnhan.android.calendarsample.model.StaffAdapter;
 import cvnhan.android.calendarsample.model.StaffInfo;
-import cvnhan.android.library.TimeView;
+import cvnhan.android.calendarsample.widget.TimeView;
 
 
 public class MainActivity extends Activity {
@@ -31,6 +34,22 @@ public class MainActivity extends Activity {
 
     @InjectView(R.id.timeView)
     TimeView mGraphView;
+
+    @InjectView(R.id.tvServiceCircle)
+    public TextView tvServiceCircle;
+    @InjectView(R.id.tvService)
+    public TextView tvService;
+
+    @InjectView(R.id.tvStaffCircle)
+    public TextView tvStaffCircle;
+    @InjectView(R.id.tvStaff)
+    public TextView tvStaff;
+
+    @InjectView(R.id.tvTimeCircle)
+    public TextView tvTimeCircle;
+    @InjectView(R.id.tvTime)
+    public TextView tvTime;
+
 
     private ServiceAdapter serviceAdapter;
     private StaffAdapter staffAdapter;
@@ -49,7 +68,7 @@ public class MainActivity extends Activity {
 
         serviceView.setHasFixedSize(true);
         serviceView.setLayoutManager(llm);
-        serviceAdapter = new ServiceAdapter(createServiceList());
+        serviceAdapter = new ServiceAdapter(createServiceList(), this);
         serviceView.setAdapter(serviceAdapter);
         serviceView.getItemAnimator().setSupportsChangeAnimations(true);
         serviceView.setItemAnimator(new DefaultItemAnimator());
@@ -58,10 +77,11 @@ public class MainActivity extends Activity {
         llm.setOrientation(LinearLayoutManager.VERTICAL);
         staffView.setHasFixedSize(true);
         staffView.setLayoutManager(llm);
-        staffAdapter = new StaffAdapter(createStaffList());
+        staffAdapter = new StaffAdapter(createStaffList(), this);
         staffView.setAdapter(staffAdapter);
         staffView.getItemAnimator().setSupportsChangeAnimations(true);
 
+        mGraphView.injectMainActivity(this);
         mGraphView.zoomMaximum();
     }
 
@@ -88,37 +108,75 @@ public class MainActivity extends Activity {
         return result;
     }
 
-    private List<StaffInfo> createStaffList(){
-        List<StaffInfo> result=new ArrayList<>();
+    private List<StaffInfo> createStaffList() {
+        List<StaffInfo> result = new ArrayList<>();
         StaffInfo
-                item= new StaffInfo("Anyone", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar0));
+                item = new StaffInfo("Anyone", BitmapFactory.decodeResource(this.getResources(), R.drawable.avartar0));
         result.add(item);
-        item= new StaffInfo("Mr. Free", BitmapFactory.decodeResource(this.getResources(), R.drawable.test));
+        item = new StaffInfo("Mr. Free", BitmapFactory.decodeResource(this.getResources(), R.drawable.test));
         result.add(item);
-        item= new StaffInfo("Jackit", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar1));
+        item = new StaffInfo("Jackit", BitmapFactory.decodeResource(this.getResources(), R.drawable.avartar1));
         result.add(item);
-        item= new StaffInfo("Jonny", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar2));
+        item = new StaffInfo("Jonny", BitmapFactory.decodeResource(this.getResources(), R.drawable.avartar2));
         result.add(item);
-        item= new StaffInfo("A Phuc", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar3));
+        item = new StaffInfo("A Phuc", BitmapFactory.decodeResource(this.getResources(), R.drawable.avartar3));
         result.add(item);
-        item= new StaffInfo("A Binh", BitmapFactory.decodeResource(this.getResources(),R.drawable.avartar4));
+        item = new StaffInfo("A Binh", BitmapFactory.decodeResource(this.getResources(), R.drawable.avartar4));
         result.add(item);
-        item= new StaffInfo("A Lam", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Lam", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("A Hung", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Hung", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("A Thang", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Thang", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("A Vuong", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Vuong", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("A Son", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Son", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("A Sang", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("A Sang", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
-        item= new StaffInfo("C Thuy", BitmapFactory.decodeResource(this.getResources(),R.mipmap.ic_launcher));
+        item = new StaffInfo("C Thuy", BitmapFactory.decodeResource(this.getResources(), R.mipmap.ic_launcher));
         result.add(item);
         return result;
     }
+
+
+    public void updateHeaderService(boolean status) {
+        if (status) {
+            tvServiceCircle.setBackgroundResource(R.drawable.circle_header_press);
+            tvService.setTextColor(getResources().getColor(R.color.main_green));
+        }else {
+            tvServiceCircle.setBackgroundResource(R.drawable.circle_header);
+            tvService.setTextColor(getResources().getColor(R.color.main_color));
+        }
+    }
+
+    public void updateHeaderStaff(boolean status) {
+        if (status) {
+            tvStaffCircle.setBackgroundResource(R.drawable.circle_header_press);
+            tvStaff.setTextColor(getResources().getColor(R.color.main_green));
+        }else {
+            tvStaffCircle.setBackgroundResource(R.drawable.circle_header);
+            tvStaff.setTextColor(getResources().getColor(R.color.main_color));
+        }
+    }
+
+    public void updateHeaderTime(boolean status) {
+        if (status) {
+            tvTimeCircle.setBackgroundResource(R.drawable.circle_header_press);
+            tvTime.setTextColor(getResources().getColor(R.color.main_green));
+        }else {
+            tvTimeCircle.setBackgroundResource(R.drawable.circle_header);
+            tvTime.setTextColor(getResources().getColor(R.color.main_color));
+        }
+    }
+
+    @OnClick(R.id.lvCalendar)
+    public void CalendarPopup() {
+        Toast.makeText(getApplicationContext(), "Calendar popup", Toast.LENGTH_SHORT).show();
+    }
+
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);

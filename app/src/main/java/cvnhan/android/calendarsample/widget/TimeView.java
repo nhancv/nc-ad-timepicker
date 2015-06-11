@@ -1,4 +1,4 @@
-package cvnhan.android.library;
+package cvnhan.android.calendarsample.widget;
 
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -28,6 +28,9 @@ import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.OverScroller;
+
+import cvnhan.android.calendarsample.MainActivity;
+import cvnhan.android.calendarsample.R;
 
 /**
  * Created by cvnhan on 09-Jun-15.
@@ -151,6 +154,7 @@ public class TimeView extends View {
     private boolean edgeEffectRightActive;
 
     private Canvas canvas;
+    public MainActivity mainActivity;
     public TimeView(Context context) {
         this(context, null, 0);
     }
@@ -219,6 +223,9 @@ public class TimeView extends View {
         edgeEffectBottom = new EdgeEffectCompat(context);
     }
 
+    public void injectMainActivity(MainActivity mainActivity){
+        this.mainActivity= mainActivity;
+    }
     /**
      * (Re)initializes {@link Paint} objects based on current attribute values.
      */
@@ -1223,7 +1230,7 @@ public class TimeView extends View {
                     + " viewport=" + viewport.toString() + "}";
         }
 
-        public static final Parcelable.Creator<SavedState> CREATOR
+        public static final Creator<SavedState> CREATOR
                 = ParcelableCompat.newCreator(new ParcelableCompatCreatorCallbacks<SavedState>() {
             @Override
             public SavedState createFromParcel(Parcel in, ClassLoader loader) {
@@ -1288,7 +1295,7 @@ class Zoomer {
     private float mCurrentZoom;
 
     /**
-     * The time the zoom started, computed using {@link android.os.SystemClock#elapsedRealtime()}.
+     * The time the zoom started, computed using {@link SystemClock#elapsedRealtime()}.
      */
     private long mStartRTC;
 
@@ -1371,7 +1378,7 @@ class Zoomer {
 }
 
 /**
- * A utility class for using {@link android.widget.OverScroller} in a backward-compatible fashion.
+ * A utility class for using {@link OverScroller} in a backward-compatible fashion.
  */
 class OverScrollerCompat {
     /**
@@ -1381,7 +1388,7 @@ class OverScrollerCompat {
     }
 
     /**
-     * @see android.view.ScaleGestureDetector#getCurrentSpanY()
+     * @see ScaleGestureDetector#getCurrentSpanY()
      */
     @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     public static float getCurrVelocity(OverScroller overScroller) {
@@ -1394,7 +1401,7 @@ class OverScrollerCompat {
 }
 
 /**
- * A utility class for using {@link android.view.ScaleGestureDetector} in a backward-compatible
+ * A utility class for using {@link ScaleGestureDetector} in a backward-compatible
  * fashion.
  */
 class ScaleGestureDetectorCompat {
@@ -1405,7 +1412,7 @@ class ScaleGestureDetectorCompat {
     }
 
     /**
-     * @see android.view.ScaleGestureDetector#getCurrentSpanX()
+     * @see ScaleGestureDetector#getCurrentSpanX()
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static float getCurrentSpanX(ScaleGestureDetector scaleGestureDetector) {
@@ -1417,7 +1424,7 @@ class ScaleGestureDetectorCompat {
     }
 
     /**
-     * @see android.view.ScaleGestureDetector#getCurrentSpanY()
+     * @see ScaleGestureDetector#getCurrentSpanY()
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static float getCurrentSpanY(ScaleGestureDetector scaleGestureDetector) {
@@ -1476,12 +1483,15 @@ class ObjectData {
 
     public void Draw(Canvas canvas) {
         if (isCreated()) {
+            timeView.mainActivity.updateHeaderTime(true);
 //            int clipRestoreCount = canvas.save();
             canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
             if (flagMove) {
                 canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), movePaint);
             }
 //            canvas.restoreToCount(clipRestoreCount);
+        }else{
+            timeView.mainActivity.updateHeaderTime(false);
         }
     }
 

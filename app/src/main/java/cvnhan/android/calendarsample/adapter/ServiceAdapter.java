@@ -1,4 +1,4 @@
-package cvnhan.android.calendarsample.model;
+package cvnhan.android.calendarsample.adapter;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -14,7 +14,9 @@ import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
+import cvnhan.android.calendarsample.MainActivity;
 import cvnhan.android.calendarsample.R;
+import cvnhan.android.calendarsample.model.ServiceInfo;
 
 /**
  * Created by cvnhan on 11-Jun-15.
@@ -23,13 +25,15 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
 
     public Context context;
     private List<ServiceInfo> serviceInfos;
+    public MainActivity mainActivity;
 
     public ServiceAdapter() {
         this.serviceInfos = new ArrayList<>();
     }
 
-    public ServiceAdapter(List<ServiceInfo> serviceInfos) {
+    public ServiceAdapter(List<ServiceInfo> serviceInfos, MainActivity mainActivity) {
         this.serviceInfos = serviceInfos;
+        this.mainActivity = mainActivity;
     }
 
 
@@ -38,20 +42,20 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
         return serviceInfos.size();
     }
 
-    public ServiceInfo getItemClicked(){
-        for(ServiceInfo serviceInfo: serviceInfos){
-            if(serviceInfo.isClicked) return serviceInfo;
+    public ServiceInfo getItemClicked() {
+        for (ServiceInfo serviceInfo : serviceInfos) {
+            if (serviceInfo.isClicked) return serviceInfo;
         }
         return null;
     }
 
-    public void setItemClicked(int index){
-        for(int i=0; i<serviceInfos.size(); i++){
-            ServiceInfo serviceInfo =serviceInfos.get(i);
-            if(i==index){
-                serviceInfo.isClicked=!serviceInfo.isClicked;
-            }else{
-                serviceInfo.isClicked=false;
+    public void setItemClicked(int index) {
+        for (int i = 0; i < serviceInfos.size(); i++) {
+            ServiceInfo serviceInfo = serviceInfos.get(i);
+            if (i == index) {
+                serviceInfo.isClicked = !serviceInfo.isClicked;
+            } else {
+                serviceInfo.isClicked = false;
             }
         }
         notifyDataSetChanged();
@@ -64,11 +68,11 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
         serviceViewHolder.tvDuration.setText(item.duration);
 
         LinearLayout serviceInfoItem = serviceViewHolder.serviceInfoItem;
-        if(item.isClicked) {
+        if (item.isClicked) {
             serviceViewHolder.tvName.setTextColor(Color.parseColor("#f6921e"));
             serviceViewHolder.tvDuration.setTextColor(Color.parseColor("#f6921e"));
             serviceInfoItem.setBackgroundColor(Color.parseColor("#FFFFCC"));
-        }else{
+        } else {
             serviceViewHolder.tvName.setTextColor(Color.BLACK);
             serviceViewHolder.tvDuration.setTextColor(Color.BLACK);
             serviceInfoItem.setBackgroundColor(Color.TRANSPARENT);
@@ -78,6 +82,10 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
             @Override
             public void onClick(View view) {
                 setItemClicked(i);
+                if (getItemClicked() != null)
+                    mainActivity.updateHeaderService(true);
+                else
+                    mainActivity.updateHeaderService(false);
             }
         });
 
@@ -106,7 +114,7 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
 
         public ServiceViewHolder(View v, Context context) {
             super(v);
-            this.context=context;
+            this.context = context;
             ButterKnife.inject(this, v);
         }
     }

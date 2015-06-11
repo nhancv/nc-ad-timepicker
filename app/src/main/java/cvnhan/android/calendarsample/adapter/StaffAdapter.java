@@ -1,4 +1,4 @@
-package cvnhan.android.calendarsample.model;
+package cvnhan.android.calendarsample.adapter;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -15,8 +15,10 @@ import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
+import cvnhan.android.calendarsample.MainActivity;
 import cvnhan.android.calendarsample.R;
 import cvnhan.android.calendarsample.Utils;
+import cvnhan.android.calendarsample.model.StaffInfo;
 
 /**
  * Created by cvnhan on 11-Jun-15.
@@ -25,13 +27,14 @@ public class StaffAdapter extends RecyclerView.Adapter<StaffAdapter.StaffViewHol
 
     public Context context;
     private List<StaffInfo> staffInfos;
-
+    public MainActivity mainActivity;
     public StaffAdapter() {
         this.staffInfos = new ArrayList<>();
     }
 
-    public StaffAdapter(List<StaffInfo> staffInfos) {
+    public StaffAdapter(List<StaffInfo> staffInfos, MainActivity mainActivity) {
         this.staffInfos = staffInfos;
+        this.mainActivity=mainActivity;
     }
 
 
@@ -78,6 +81,10 @@ public class StaffAdapter extends RecyclerView.Adapter<StaffAdapter.StaffViewHol
             @Override
             public void onClick(View view) {
                 setItemClicked(i);
+                if (getItemClicked() != null)
+                    mainActivity.updateHeaderStaff(true);
+                else
+                    mainActivity.updateHeaderStaff(false);
             }
         });
 
