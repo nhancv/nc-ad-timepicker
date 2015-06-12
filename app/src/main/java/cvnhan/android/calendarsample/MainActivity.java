@@ -82,6 +82,7 @@ public class MainActivity extends Activity {
         staffView.getItemAnimator().setSupportsChangeAnimations(true);
 
         mGraphView.injectMainActivity(this);
+        mGraphView.setupTimeView(600,50,720);
         mGraphView.zoomMaximum();
     }
 

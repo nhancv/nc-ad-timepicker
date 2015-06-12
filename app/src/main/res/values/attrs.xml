@@ -7,8 +7,8 @@
         <attr name="labelHeaderColTextSize" format="dimension" />
         <attr name="labelHeaderColSeparation" format="dimension" />
         <attr name="labelHeaderColTextColor" format="color" />
-        <attr name="dataThickness" format="dimension" />
-        <attr name="dataColor" format="color" />
+        <attr name="invalidThickness" format="dimension" />
+        <attr name="invalidColor" format="color" />
         <attr name="gridThickness" format="dimension" />
         <attr name="gridColor" format="color" />
         <attr name="numColum" format="integer" />

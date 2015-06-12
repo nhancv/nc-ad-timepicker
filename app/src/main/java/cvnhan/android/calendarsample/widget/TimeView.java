@@ -3,6 +3,8 @@ package cvnhan.android.calendarsample.widget;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -11,6 +13,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
+import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -28,6 +31,10 @@ import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.OverScroller;
+
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 
 import cvnhan.android.calendarsample.MainActivity;
 import cvnhan.android.calendarsample.R;
@@ -65,24 +72,34 @@ public class TimeView extends View {
 
     public static Rect mContentRect = new Rect();
     public static final int MINCHARTSIZE = 100;
+
     //Define custom
+
     private static float cellMaxWidth = 90;
     private static float cellMaxHeight = 80;
-
-    private static int numColum = 1;
-    private static int numRow = 32;
-    private static int startHour = 540; //9:00
+    private static int startHour = 420; //7:00
     private static int blockHour = 15; //15 minutes
-    private static boolean hasHeaderRow = false;
-    private static boolean hasHeaderColum = true;
+    private static int numColum = 1;
+    private static int numRow = 56; // ==> get lastWorkingHour of shop: startHour + blockHour*numRow = 21:00
+    private static float currentTime = -2;
+    private static float lastAdmission = -2;
 
-    private static double minDeltaH = 1, maxDeltaH = 1;
+    private static double minDeltaH = 1, maxDeltaH = 1; // block in viewport
     private static double minDeltaW = 1, maxDeltaW = 1;
     private float density = getResources().getDisplayMetrics().density;
 
-    //Array data
+    //Array AxisStops data
     private final AxisStops xStopsBuffer = new AxisStops();
     private final AxisStops yStopsBuffer = new AxisStops();
+    //Array invalid area
+    private ArrayList<InvalidArea> invalidAreas = new ArrayList<>();
+    //Object Data
+    private ObjectData objectData;
+    //Bitmap current time line and last admission
+    private Bitmap currTimeBitmap, lastAdmissionBitmap;
+
+    private Handler timerHandler = new Handler();
+
 
     private float[] axisXPositionsBuffer = new float[]{};
     private float[] axisYPositionsBuffer = new float[]{};
@@ -90,10 +107,12 @@ public class TimeView extends View {
     private float[] axisYLinesBuffer = new float[]{};
     private String[] headerRowData = new String[]{};
     private String[] headerColData = new String[]{};
-
     private Point mSurfaceSizeBuffer = new Point();
 
     //Define Paint
+    private static boolean hasHeaderColum = true;
+    private static boolean hasHeaderRow = false;
+
     //HeaderRow
     private float labelHeaderRowTextSize = 8;
     private int labelHeaderRowSeparation = 1;
@@ -111,23 +130,16 @@ public class TimeView extends View {
     private Paint headerColPaint;
 
     //Data
-    private float dataThickness;
-    private int dataColor;
-    private Paint dataPaint;
+    private float invalidThickness;
+    private int invalidColor;
+    private Paint invalidPaint;
 
     //Grid
     private float gridThickness;
     private int gridColor;
     private Paint gridPaint;
 
-    // State objects and values related to gesture tracking.
-    private ScaleGestureDetector scaleGestureDetector;
-    private GestureDetectorCompat gestureDetector;
-    private OverScroller mScroller;
-    private Zoomer mZoomer;
-    private PointF zoomFocalPoint = new PointF();
-    private RectF scrollerStartViewport = new RectF(); // Used only for zooms and flings.
-
+    //Flag event info
     private float _downEventX, _downEventY, _moveEventX, _moveEventY,
             _distanceX, _distanceY, _spanX, _spanY, _velocityX, _velocityY, _showPressX, _showPressY, _longPressX, _longPressY, _deltaMove;
     private boolean FLAG_DOWN = false;
@@ -141,7 +153,13 @@ public class TimeView extends View {
     private boolean FLAG_SHOWPRESS = false;
     private boolean FLAG_RESTORE = false;
 
-    private ObjectData objectData;
+    // State objects and values related to gesture tracking.
+    private ScaleGestureDetector scaleGestureDetector;
+    private GestureDetectorCompat gestureDetector;
+    private OverScroller mScroller;
+    private Zoomer mZoomer;
+    private PointF zoomFocalPoint = new PointF();
+    private RectF scrollerStartViewport = new RectF(); // Used only for zooms and flings.
 
     // Edge effect / overscroll tracking objects.
     private EdgeEffectCompat edgeEffectTop;
@@ -155,6 +173,7 @@ public class TimeView extends View {
 
     private Canvas canvas;
     public MainActivity mainActivity;
+
     public TimeView(Context context) {
         this(context, null, 0);
     }
@@ -175,10 +194,10 @@ public class TimeView extends View {
             gridColor = a.getColor(
                     R.styleable.TimeView_gridColor, gridColor);
 
-            dataThickness = a.getDimension(
-                    R.styleable.TimeView_dataThickness, dataThickness);
-            dataColor = a.getColor(
-                    R.styleable.TimeView_dataColor, dataColor);
+            invalidThickness = a.getDimension(
+                    R.styleable.TimeView_invalidThickness, invalidThickness);
+            invalidColor = a.getColor(
+                    R.styleable.TimeView_invalidColor, invalidColor);
 
             labelHeaderColTextColor = a.getColor(
                     R.styleable.TimeView_labelHeaderColTextColor, labelHeaderColTextColor);
@@ -223,48 +242,6 @@ public class TimeView extends View {
         edgeEffectBottom = new EdgeEffectCompat(context);
     }
 
-    public void injectMainActivity(MainActivity mainActivity){
-        this.mainActivity= mainActivity;
-    }
-    /**
-     * (Re)initializes {@link Paint} objects based on current attribute values.
-     */
-    private void initPaints() {
-        // Important for certain APIs
-        mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
-        mContentRect = new Rect();
-        density = getResources().getDisplayMetrics().density;
-
-        headerRowPaint = new Paint();
-        headerRowPaint.setAntiAlias(true);
-        headerRowPaint.setTextSize(labelHeaderRowTextSize);
-        headerRowPaint.setColor(labelHeaderRowTextColor);
-//        headerRowPaint.setTextAlign(Paint.Align.CENTER);
-        labelHeaderRowHeight = (int) Math.abs(headerRowPaint.getFontMetrics().top);
-        maxLabelHeaderRowWidth = (int) headerRowPaint.measureText("00:00");
-
-        headerColPaint = new Paint();
-        headerColPaint.setAntiAlias(true);
-        headerColPaint.setTextSize(labelHeaderColTextSize);
-        headerColPaint.setColor(labelHeaderColTextColor);
-//        headerColPaint.setTextAlign(Paint.Align.RIGHT);
-        labelHeaderColHeight = (int) Math.abs(headerColPaint.getFontMetrics().top);
-        maxLabelHeaderColWidth = (int) headerColPaint.measureText("00:00");
-
-        gridPaint = new Paint();
-        gridPaint.setStrokeWidth(gridThickness);
-        gridPaint.setColor(gridColor);
-        gridPaint.setStyle(Paint.Style.STROKE);
-
-        dataPaint = new Paint();
-        dataPaint.setStrokeWidth(dataThickness);
-        dataPaint.setColor(dataColor);
-        dataPaint.setStyle(Paint.Style.FILL);
-        dataPaint.setAntiAlias(true);
-        dataPaint.setAlpha(50);
-
-    }
-
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
@@ -303,348 +280,9 @@ public class TimeView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         this.canvas = canvas;
-        computeAxis();
-        // Draw Header
-        drawHeader(canvas);
-        int clipRestoreCount = canvas.save();
-        canvas.clipRect(mContentRect);
-        // Draws axes
-        drawAxes(canvas);
-        drawEdgeEffectsUnclipped(canvas);
-        // Removes clipping rectangle
-        canvas.restoreToCount(clipRestoreCount);
-        canvas.drawRect(mContentRect, gridPaint);
-        objectData.Draw(canvas);
-
-    }
-
-    private void computeAxis() {
-        int i;
-        if (axisXPositionsBuffer.length < xStopsBuffer.axisLength) {
-            axisXPositionsBuffer = new float[xStopsBuffer.axisLength];
-        }
-        if (axisYPositionsBuffer.length < yStopsBuffer.axisLength) {
-            axisYPositionsBuffer = new float[yStopsBuffer.axisLength];
-        }
-        if (axisXLinesBuffer.length < xStopsBuffer.axisLength * 4) {
-            axisXLinesBuffer = new float[xStopsBuffer.axisLength * 4];
-        }
-        if (axisYLinesBuffer.length < yStopsBuffer.axisLength * 4) {
-            axisYLinesBuffer = new float[yStopsBuffer.axisLength * 4];
-        }
-
-        // Compute positions
-        for (i = 0; i < xStopsBuffer.axisLength; i++) {
-            axisXPositionsBuffer[i] = getDrawX(xStopsBuffer.stops[i]);
-        }
-        for (i = 0; i < yStopsBuffer.axisLength; i++) {
-            axisYPositionsBuffer[i] = getDrawY(yStopsBuffer.stops[i]);
-        }
-
-        for (i = 0; i < xStopsBuffer.axisLength; i++) {
-            axisXLinesBuffer[i * 4 + 0] = (float) Math.floor(axisXPositionsBuffer[i]);
-            axisXLinesBuffer[i * 4 + 1] = mContentRect.top;
-            axisXLinesBuffer[i * 4 + 2] = (float) Math.floor(axisXPositionsBuffer[i]);
-            axisXLinesBuffer[i * 4 + 3] = mContentRect.bottom;
-        }
-        for (i = 0; i < yStopsBuffer.axisLength; i++) {
-            axisYLinesBuffer[i * 4 + 0] = mContentRect.left;
-            axisYLinesBuffer[i * 4 + 1] = (float) Math.floor(axisYPositionsBuffer[i]);
-            axisYLinesBuffer[i * 4 + 2] = mContentRect.right;
-            axisYLinesBuffer[i * 4 + 3] = (float) Math.floor(axisYPositionsBuffer[i]);
-        }
-    }
-
-    private void drawHeader(Canvas canvas) {
-        int clipRestoreCount = canvas.save();
-
-        int i;
-        // Draws X labels
-        if (hasHeaderRow) {
-            canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
-
-            for (i = 0; i < xStopsBuffer.axisLength; i++) {
-                canvas.drawText(
-                        AxisStops.getHHMM(xStopsBuffer.minutes[i]),
-                        (i < xStopsBuffer.axisLength - 1) ? axisXPositionsBuffer[i] : (axisXPositionsBuffer[i] - maxLabelHeaderRowWidth),
-                        mContentRect.top - labelHeaderRowHeight - labelHeaderRowSeparation,
-                        headerRowPaint);
-            }
-            canvas.restoreToCount(clipRestoreCount);
-        }
-
-        // Draws Y labels
-        if (hasHeaderColum) {
-            clipRestoreCount = canvas.save();
-            canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
-
-            if (mCurrentViewport.height() <= 2) {
-                for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
-                    drawTextY(canvas, i);
-                }
-            }
-            if (mCurrentViewport.height() <= 1) {
-                for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
-                    drawTextY(canvas, i);
-                }
-            }
-            if (mCurrentViewport.height() <= 0.6) {
-                for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
-                    drawTextY(canvas, i);
-                }
-            }
-            canvas.restoreToCount(clipRestoreCount);
-        }
-    }
-
-    private void drawTextY(Canvas canvas, int i) {
-        canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
-                mContentRect.left - labelHeaderColSeparation - maxLabelHeaderColWidth,
-                (i > 0) ? axisYPositionsBuffer[i] : (axisYPositionsBuffer[i] + labelHeaderColHeight),
-                headerColPaint);
-    }
-
-    public void initAxisStops(int row, int col) {
-        maxDeltaH = (cellMaxHeight * density) / mContentRect.height();
-        maxDeltaW = (cellMaxWidth * density) / mContentRect.width();
-        computeAxisStops(
-                mCurrentViewport.left,
-                mCurrentViewport.right,
-                col,
-                xStopsBuffer, false);
-        computeAxisStops(
-                mCurrentViewport.top,
-                mCurrentViewport.bottom,
-                row,
-                yStopsBuffer, true);
-
-    }
-
-    /**
-     * Draws the chart axes onto the canvas.
-     */
-    private void drawAxes(Canvas canvas) {
-        int i;
-        //Draw axis X
-        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.axisLength * 4, gridPaint);
-
-        //Draw axis X
-        //Draw hours
-        if (mCurrentViewport.height() <= 2) {
-            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-        //Draw 30 unit (minutes)
-        if (mCurrentViewport.height() <= 1) {
-            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-        //Draw 15 unit (minutes)
-        if (mCurrentViewport.height() <= 0.6) {
-            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
-                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
-            }
-        }
-    }
-
-    private static void computeAxisStops(double first, double last, int steps, AxisStops outStops, boolean isYAxis) {
-        double range = last - first;
-        if (steps == 0 || range <= 0) {
-            outStops.stops = new float[]{};
-            outStops.numBlocks = 0;
-            return;
-        }
-        double interval = range / steps;
-        if (isYAxis) {
-            minDeltaH = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
-            maxDeltaH = Math.max(minDeltaH, maxDeltaH);
-        } else {
-            minDeltaW = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
-            maxDeltaW = Math.max(minDeltaW, maxDeltaW);
-        }
-        double f;
-        int i;
-        outStops.numBlocks = steps;
-        outStops.axisLength = steps + 1;
-        if (outStops.stops.length < outStops.axisLength) {
-            // Ensure stops contains at least numStops elements.
-            outStops.stops = new float[outStops.axisLength];
-            outStops.minutes = new int[outStops.axisLength];
-        }
-
-        for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
-            outStops.stops[i] = (float) f;
-            if (i == 0)
-                outStops.minutes[i] = startHour;
-            else
-                outStops.minutes[i] = outStops.minutes[i - 1] + blockHour;
-        }
-    }
-
-
-    private void drawEdgeEffectsUnclipped(Canvas canvas) {
-        boolean needsInvalidate = false;
-
-        if (!edgeEffectTop.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.left, mContentRect.top);
-            edgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
-            if (edgeEffectTop.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!edgeEffectBottom.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(2 * mContentRect.left - mContentRect.right, mContentRect.bottom);
-            canvas.rotate(180, mContentRect.width(), 0);
-            edgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
-            if (edgeEffectBottom.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!edgeEffectLeft.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.left, mContentRect.bottom);
-            canvas.rotate(-90, 0, 0);
-            edgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
-            if (edgeEffectLeft.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (!edgeEffectRight.isFinished()) {
-            final int restoreCount = canvas.save();
-            canvas.translate(mContentRect.right, mContentRect.top);
-            canvas.rotate(90, 0, 0);
-            edgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
-            if (edgeEffectRight.draw(canvas)) {
-                needsInvalidate = true;
-            }
-            canvas.restoreToCount(restoreCount);
-        }
-
-        if (needsInvalidate) {
-            ViewCompat.postInvalidateOnAnimation(this);
-        }
-    }
-
-    /*
-     * ADAPTOR define
-     */
-    //viewport to contentRect
-    private float getAxisx(float eventX) {
-        return mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
-    }
-
-    private float getAxisy(float eventY) {
-        return mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
-    }
-
-    public int getIndexy(float y) {
-        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
-            if (y >= yStopsBuffer.stops[i] && y < yStopsBuffer.stops[i + 1]) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    public int getIndexyByEventY(final float eventY) {
-        return getIndexy(getAxisy(eventY));
-    }
-
-    public int getIndexx(float x) {
-        for (int i = 0; i < xStopsBuffer.axisLength - 1; i++) {
-            if (x >= xStopsBuffer.stops[i] && x < xStopsBuffer.stops[i + 1]) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    public int getIndexxByEventX(float eventX) {
-        return getIndexx(getAxisx(eventX));
-    }
-
-    public void drawObjectbyCell(int row, int col) {
-        if (row == -1 || col == -1) return;
-        float left = getDrawX(xStopsBuffer.stops[col]);
-        float top = getDrawY(yStopsBuffer.stops[row]);
-        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), dataPaint);
-    }
-
-    public void drawObjectbyEvent(float eventX, float eventY) {
-        int row = getIndexyByEventY(eventY);
-        int col = getIndexxByEventX(eventX);
-        drawObjectbyCell(row, col);
-
-    }
-
-    public float getBlockHeight() {
-        return (float) (minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (mCurrentViewport.bottom - mCurrentViewport.top)) * mContentRect.height());
-    }
-
-    public float getBlockWidth() {
-        return (float) (minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (mCurrentViewport.right - mCurrentViewport.left)) * mContentRect.width());
-    }
-
-    public boolean isScaleYAvailable(float viewportBottom, float viewportTop) {
-        return ((minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (viewportBottom - viewportTop))) <= maxDeltaH);
-    }
-
-    public boolean isScaleXAvailable(float viewportRight, float viewportLeft) {
-        return ((minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (viewportRight - viewportLeft))) <= maxDeltaW);
-    }
-
-    //contentRect to viewport
-
-    /**
-     * Computes the pixel offset for the given X chart value. This may be outside the view bounds.
-     */
-    private float getDrawX(float x) {
-        return mContentRect.left
-                + mContentRect.width()
-                * (x - mCurrentViewport.left) / mCurrentViewport.width();
-    }
-
-    /**
-     * Computes the pixel offset for the given Y chart value. This may be outside the view bounds.
-     */
-    private float getDrawY(float y) {
-        return mContentRect.top
-                + mContentRect.height()
-                * ((y - mCurrentViewport.top) / mCurrentViewport.height());
-    }
-
-    //END ADAPTOR
-
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-    //
-    //     Methods and objects related to gesture handling
-    //
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-
-    private boolean hitTest(float x, float y, PointF dest) {
-        if (!mContentRect.contains((int) x, (int) y)) {
-            return false;
-        }
-
-        dest.set(
-                mCurrentViewport.left
-                        + mCurrentViewport.width()
-                        * (x - mContentRect.left) / mContentRect.width(),
-                mCurrentViewport.top
-                        + mCurrentViewport.height()
-                        * (y - mContentRect.top) / mContentRect.height());
-        return true;
+        drawViewport(canvas);
+        drawObjectData(canvas);
+        drawInvalidArea(canvas);
     }
 
     @Override
@@ -667,7 +305,7 @@ public class TimeView extends View {
             case (MotionEvent.ACTION_UP):
 //                Utils.e("ACTION_UP");
                 FLAG_UP = true;
-                int index = getIndexy(objectData.getAxisy());
+                int index = getFixBlockwithIndexy(objectData.getAxisy());
                 if (index != -1) {
                     objectData.fixBlock(yStopsBuffer.stops[index]);
                 }
@@ -680,42 +318,8 @@ public class TimeView extends View {
         }
 
         boolean retVal = scaleGestureDetector.onTouchEvent(event);
-//        if (!scaleGestureDetector.isInProgress()) {
         retVal = gestureDetector.onTouchEvent(event) || retVal;
-//        }
-
         return retVal || super.onTouchEvent(event);
-    }
-
-    public void handleOnPress(MotionEvent event) {
-        if (objectData.isTouched(_downEventY) == false) {
-            objectData.setHeight(getBlockHeight());
-            objectData.setAxisy(_downEventY);
-
-            int index = getIndexy(objectData.getAxisy());
-            if (index != -1)
-                objectData.fixBlock(yStopsBuffer.stops[index]);
-
-        } else {
-            objectData.releaseObj();
-        }
-        invalidate();
-    }
-
-    private void handleOnMove(MotionEvent event) {
-        if (FLAG_SHOWPRESS) {
-            float axisytmp = Math.max(_moveEventY - _deltaMove, mContentRect.top);
-            objectData.setAxisy(Math.min(axisytmp, mContentRect.bottom - objectData.getHeight()));
-//            objectData.setAxisy(_moveEventY - _deltaMove);
-        } else {
-            objectData.setFlagMove(false);
-        }
-        invalidate();
-    }
-
-
-    private void releaseFlagTouch() {
-        FLAG_DOWN = FLAG_MOVE = FLAG_SCROLL = FLAG_SCALE = FLAG_UP = FLAG_FLING = FLAG_DOUBLETAP = FLAG_LONGPRESS = FLAG_SHOWPRESS = false;
     }
 
     /**
@@ -769,19 +373,6 @@ public class TimeView extends View {
             return true;
         }
     };
-
-    /**
-     * Ensures that current viewport is inside the viewport extremes defined by {@link #AXIS_X_MIN},
-     * {@link #AXIS_X_MAX}, {@link #AXIS_Y_MIN} and {@link #AXIS_Y_MAX}.
-     */
-    private void constrainViewport() {
-        mCurrentViewport.left = Math.max(AXIS_X_MIN, mCurrentViewport.left);
-        mCurrentViewport.top = Math.max(AXIS_Y_MIN, mCurrentViewport.top);
-        mCurrentViewport.bottom = Math.max(Math.nextUp(mCurrentViewport.top),
-                Math.min(AXIS_Y_MAX, mCurrentViewport.bottom));
-        mCurrentViewport.right = Math.max(Math.nextUp(mCurrentViewport.left),
-                Math.min(AXIS_X_MAX, mCurrentViewport.right));
-    }
 
     /**
      * The gesture listener, used for handling simple gestures such as double touches, scrolls,
@@ -899,47 +490,6 @@ public class TimeView extends View {
         }
     };
 
-    private void releaseEdgeEffects() {
-        edgeEffectLeftActive
-                = edgeEffectTopActive
-                = edgeEffectRightActive
-                = edgeEffectBottomActive
-                = false;
-        edgeEffectLeft.onRelease();
-        edgeEffectTop.onRelease();
-        edgeEffectRight.onRelease();
-        edgeEffectBottom.onRelease();
-    }
-
-    private void fling(int velocityX, int velocityY) {
-        releaseEdgeEffects();
-        computeScrollSurfaceSize(mSurfaceSizeBuffer);
-        scrollerStartViewport.set(mCurrentViewport);
-        int startX = (int) (mSurfaceSizeBuffer.x * (scrollerStartViewport.left - AXIS_X_MIN) / (
-                AXIS_X_MAX - AXIS_X_MIN));
-        int startY = (int) (mSurfaceSizeBuffer.y * (scrollerStartViewport.top - AXIS_Y_MIN) / (
-                AXIS_Y_MAX - AXIS_Y_MIN));
-        mScroller.forceFinished(true);
-        mScroller.fling(
-                startX,
-                startY,
-                velocityX,
-                velocityY,
-                0, mSurfaceSizeBuffer.x - mContentRect.width(),
-                0, mSurfaceSizeBuffer.y - mContentRect.height(),
-                mContentRect.width() / 2,
-                mContentRect.height() / 2);
-        ViewCompat.postInvalidateOnAnimation(this);
-    }
-
-    private void computeScrollSurfaceSize(Point out) {
-        out.set(
-                (int) (mContentRect.width() * (AXIS_X_MAX - AXIS_X_MIN)
-                        / mCurrentViewport.width()),
-                (int) (mContentRect.height() * (AXIS_Y_MAX - AXIS_Y_MIN)
-                        / mCurrentViewport.height()));
-    }
-
     @Override
     public void computeScroll() {
         super.computeScroll();
@@ -1023,15 +573,6 @@ public class TimeView extends View {
         if (needsInvalidate) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
-    }
-
-    private void setViewportTopLeft(float x, float y) {
-        float curWidth = mCurrentViewport.width();
-        float curHeight = mCurrentViewport.height();
-        x = Math.max(AXIS_X_MIN, Math.min(x, AXIS_X_MAX - curWidth));
-        y = Math.max(AXIS_Y_MIN, Math.min(y, AXIS_Y_MAX - curHeight));
-        mCurrentViewport.set(x, y, x + curWidth, y + curHeight);
-        ViewCompat.postInvalidateOnAnimation(this);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1163,21 +704,14 @@ public class TimeView extends View {
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    public float getDataThickness() {
-        return dataThickness;
+    public float getInvalidThickness() {
+        return invalidThickness;
     }
 
-    public void setDataThickness(float dataThickness) {
-        dataThickness = dataThickness;
+    public void setInvalidThickness(float invalidThickness) {
+        invalidThickness = invalidThickness;
     }
 
-    public int getDataColor() {
-        return dataColor;
-    }
-
-    public void setDataColor(int dataColor) {
-        dataColor = dataColor;
-    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -1249,25 +783,657 @@ public class TimeView extends View {
         }
     }
 
+
     /**
-     * A simple class representing axis label values.
-     *
-     * @see #computeAxisStops
+     * User define
      */
+    //////////////////////////////////USER DEFINE////////////////////////////////
+
     private static class AxisStops {
         float[] stops = new float[]{};
         int[] minutes = new int[]{};
         int numBlocks;
-        int axisLength; //length of arr = numStops+1 because it has a last line
+        int axisLength; //length of arr = numBlocks+1 because it has a last line
 
         public static String getHHMM(int minutes) {
             return String.format("%02d:%02d", minutes / 60, minutes % 60);
         }
+
+
     }
 
+    private static class InvalidArea {
+        float first, last;
+        int type; //1 for timeoff, 2 for staff not available
+        String message;
+
+        public InvalidArea() {
+            type = 1;
+            message = "";
+            first = last = 0;
+        }
+
+        public InvalidArea(int type, String message) {
+            this.type = type;
+            this.message = message;
+        }
+
+        public InvalidArea( int type, String message, float first, float last) {
+            this.type = type;
+            this.message = message;
+            this.first = first;
+            this.last = last;
+        }
+    }
+
+    public void injectMainActivity(MainActivity mainActivity) {
+        this.mainActivity = mainActivity;
+    }
+
+    /**
+     * Setup Time View<br>
+     * Start hour (default 7:00)<br>
+     * Num row (default 56 -> 21:00)
+     */
+    public void setupTimeView(int startHour, int numRow) {
+        this.startHour = startHour;
+        this.numRow = numRow;
+        initAxisStops(numRow, numColum);
+        invalidate();
+    }
+
+    public void setupTimeView(int startHour, int numRow, int lastAdmissionMinutes) {
+        this.startHour = startHour;
+        this.numRow = numRow;
+        this.lastAdmission = getAxisyfromMinute(lastAdmissionMinutes);
+        initAxisStops(numRow, numColum);
+        invalidate();
+    }
+
+    public void initInvalidAreas() {
+//        InvalidArea invalidArea=new InvalidArea(1, "", AXIS_Y_MIN, getAxisyfromMinute(1275));
+//        invalidAreas.add(invalidArea);
+    }
+
+    public void updateCurrentTime(long currTimeMinutes) {
+        if(invalidAreas.size()==0){
+            invalidAreas.add(new InvalidArea(1, "", AXIS_Y_MIN, getAxisyfromMinute(currTimeMinutes)));
+        }
+    }
+    public int getBlockHour() {
+        return blockHour;
+    }
+
+    public void setBlockHour(int blockHour) {
+        TimeView.blockHour = blockHour;
+        invalidate();
+    }
+
+    public float getLastAdmission() {
+        return lastAdmission;
+    }
+
+    public void setLastAdmission(int lastAdmission) {
+        this.lastAdmission = lastAdmission;
+        invalidate();
+    }
+
+    public float getCurrentTime() {
+        return currentTime;
+    }
+
+    public void setCurrentTime(float currentTime) {
+        this.currentTime = currentTime;
+        invalidate();
+    }
+
+    public int getNumRow() {
+        return numRow;
+    }
+
+    public void setNumRow(int numRow) {
+        this.numRow = numRow;
+        invalidate();
+
+    }
+
+    public int getStartHour() {
+        return startHour;
+    }
+
+    public void setStartHour(int startHour) {
+        this.startHour = startHour;
+        invalidate();
+    }
+
+    private void initPaints() {
+        mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
+        mContentRect = new Rect();
+        density = getResources().getDisplayMetrics().density;
+        currTimeBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.currenttime);
+        lastAdmissionBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.lastadmission_line);
+
+
+        headerRowPaint = new Paint();
+        headerRowPaint.setAntiAlias(true);
+        headerRowPaint.setTextSize(labelHeaderRowTextSize);
+        headerRowPaint.setColor(labelHeaderRowTextColor);
+//        headerRowPaint.setTextAlign(Paint.Align.CENTER);
+        labelHeaderRowHeight = (int) Math.abs(headerRowPaint.getFontMetrics().top);
+        maxLabelHeaderRowWidth = (int) headerRowPaint.measureText("00:00");
+
+        headerColPaint = new Paint();
+        headerColPaint.setAntiAlias(true);
+        headerColPaint.setTextSize(labelHeaderColTextSize);
+        headerColPaint.setColor(labelHeaderColTextColor);
+//        headerColPaint.setTextAlign(Paint.Align.RIGHT);
+        labelHeaderColHeight = (int) Math.abs(headerColPaint.getFontMetrics().top);
+        maxLabelHeaderColWidth = (int) headerColPaint.measureText("00:00");
+
+        gridPaint = new Paint();
+        gridPaint.setStrokeWidth(gridThickness);
+        gridPaint.setColor(gridColor);
+        gridPaint.setStyle(Paint.Style.STROKE);
+
+        invalidPaint = new Paint();
+        invalidPaint.setStrokeWidth(invalidThickness);
+        invalidPaint.setColor(invalidColor);
+        invalidPaint.setStyle(Paint.Style.FILL);
+        invalidPaint.setAntiAlias(true);
+        invalidPaint.setAlpha(50);
+
+        initInvalidAreas();
+        timerHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Date date=Calendar.getInstance().getTime();
+                long minutes = date.getHours() * 60 + date.getMinutes();
+                updateCurrentTime(minutes);
+                setCurrentTime(getAxisyfromMinute(minutes));
+                timerHandler.postDelayed(this, 5000);
+            }
+        }, 10);
+    }
+
+    public void initAxisStops(int row, int col) {
+        maxDeltaH = (cellMaxHeight * density) / mContentRect.height();
+        maxDeltaW = (cellMaxWidth * density) / mContentRect.width();
+        computeAxisStops(
+                mCurrentViewport.left,
+                mCurrentViewport.right,
+                col,
+                xStopsBuffer, false);
+        computeAxisStops(
+                mCurrentViewport.top,
+                mCurrentViewport.bottom,
+                row,
+                yStopsBuffer, true);
+
+    }
+
+    private void computeAxisStops(double first, double last, int steps, AxisStops outStops, boolean isYAxis) {
+        double range = last - first;
+        if (steps == 0 || range <= 0) {
+            outStops.stops = new float[]{};
+            outStops.numBlocks = 0;
+            return;
+        }
+        double interval = range / steps;
+        if (isYAxis) {
+            minDeltaH = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
+            maxDeltaH = Math.max(minDeltaH, maxDeltaH);
+        } else {
+            minDeltaW = interval / (AXIS_Y_MAX - AXIS_Y_MIN);
+            maxDeltaW = Math.max(minDeltaW, maxDeltaW);
+        }
+        double f;
+        int i;
+        outStops.numBlocks = steps;
+        outStops.axisLength = steps + 1;
+        if (outStops.stops.length < outStops.axisLength) {
+            // Ensure stops contains at least numStops elements.
+            outStops.stops = new float[outStops.axisLength];
+            outStops.minutes = new int[outStops.axisLength];
+        }
+
+        for (f = first, i = 0; i < outStops.axisLength; f += interval, ++i) {
+            outStops.stops[i] = (float) f;
+            if (i == 0)
+                outStops.minutes[i] = startHour;
+            else
+                outStops.minutes[i] = outStops.minutes[i - 1] + blockHour;
+        }
+    }
+
+    private void computeAxis() {
+        int i;
+        if (axisXPositionsBuffer.length < xStopsBuffer.axisLength) {
+            axisXPositionsBuffer = new float[xStopsBuffer.axisLength];
+        }
+        if (axisYPositionsBuffer.length < yStopsBuffer.axisLength) {
+            axisYPositionsBuffer = new float[yStopsBuffer.axisLength];
+        }
+        if (axisXLinesBuffer.length < xStopsBuffer.axisLength * 4) {
+            axisXLinesBuffer = new float[xStopsBuffer.axisLength * 4];
+        }
+        if (axisYLinesBuffer.length < yStopsBuffer.axisLength * 4) {
+            axisYLinesBuffer = new float[yStopsBuffer.axisLength * 4];
+        }
+
+        // Compute positions
+        for (i = 0; i < xStopsBuffer.axisLength; i++) {
+            axisXPositionsBuffer[i] = getDrawX(xStopsBuffer.stops[i]);
+        }
+        for (i = 0; i < yStopsBuffer.axisLength; i++) {
+            axisYPositionsBuffer[i] = getDrawY(yStopsBuffer.stops[i]);
+        }
+
+        for (i = 0; i < xStopsBuffer.axisLength; i++) {
+            axisXLinesBuffer[i * 4 + 0] = (float) Math.floor(axisXPositionsBuffer[i]);
+            axisXLinesBuffer[i * 4 + 1] = mContentRect.top;
+            axisXLinesBuffer[i * 4 + 2] = (float) Math.floor(axisXPositionsBuffer[i]);
+            axisXLinesBuffer[i * 4 + 3] = mContentRect.bottom;
+        }
+        for (i = 0; i < yStopsBuffer.axisLength; i++) {
+            axisYLinesBuffer[i * 4 + 0] = mContentRect.left;
+            axisYLinesBuffer[i * 4 + 1] = (float) Math.floor(axisYPositionsBuffer[i]);
+            axisYLinesBuffer[i * 4 + 2] = mContentRect.right;
+            axisYLinesBuffer[i * 4 + 3] = (float) Math.floor(axisYPositionsBuffer[i]);
+        }
+    }
+
+    private void drawViewport(Canvas canvas) {
+        computeAxis();
+        drawHeader(canvas);
+        int clipRestoreCount = canvas.save();
+        canvas.clipRect(mContentRect);
+        drawAxes(canvas);
+        drawEdgeEffectsUnclipped(canvas);
+        drawCurrentTime(canvas);
+        drawLastAdmission(canvas);
+        canvas.restoreToCount(clipRestoreCount);
+        canvas.drawRect(mContentRect, gridPaint);
+    }
+
+    private void drawCurrentTime(Canvas canvas) {
+        if (currentTime >= -1 && currentTime <= 1) {
+            canvas.drawBitmap(currTimeBitmap, mContentRect.left, getDrawY(currentTime) - currTimeBitmap.getHeight() / 2, null);
+        }
+    }
+
+    private void drawLastAdmission(Canvas canvas) {
+        if (lastAdmission >= -1 && lastAdmission <= 1) {
+            canvas.drawBitmap(lastAdmissionBitmap, mContentRect.left, getDrawY(lastAdmission) - lastAdmissionBitmap.getHeight(), null);
+        }
+    }
+
+    private void drawInvalidArea(Canvas canvas) {
+        for(InvalidArea item:invalidAreas){
+            canvas.drawRect(mContentRect.left, Math.max(getDrawY(item.first), mContentRect.top), mContentRect.right, Math.min(getDrawY(item.last), mContentRect.bottom), invalidPaint);
+
+        }
+
+    }
+
+    private void drawObjectData(Canvas canvas) {
+        objectData.draw(canvas);
+    }
+
+    private void drawHeader(Canvas canvas) {
+        int clipRestoreCount = canvas.save();
+
+        int i;
+        // Draws X labels
+        if (hasHeaderRow) {
+            canvas.clipRect(new Rect(mContentRect.left, 0, mContentRect.right, mContentRect.top));
+
+            for (i = 0; i < xStopsBuffer.axisLength; i++) {
+                canvas.drawText(
+                        AxisStops.getHHMM(xStopsBuffer.minutes[i]),
+                        (i < xStopsBuffer.axisLength - 1) ? axisXPositionsBuffer[i] : (axisXPositionsBuffer[i] - maxLabelHeaderRowWidth),
+                        mContentRect.top - labelHeaderRowHeight - labelHeaderRowSeparation,
+                        headerRowPaint);
+            }
+            canvas.restoreToCount(clipRestoreCount);
+        }
+
+        // Draws Y labels
+        if (hasHeaderColum) {
+            clipRestoreCount = canvas.save();
+            canvas.clipRect(new Rect(0, mContentRect.top, mContentRect.left, mContentRect.bottom));
+
+            if (mCurrentViewport.height() <= 2) {
+                for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
+                    drawTextY(canvas, i);
+                }
+            }
+            if (mCurrentViewport.height() <= 1) {
+                for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
+                    drawTextY(canvas, i);
+                }
+            }
+            if (mCurrentViewport.height() <= 0.6) {
+                for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
+                    drawTextY(canvas, i);
+                }
+            }
+            canvas.restoreToCount(clipRestoreCount);
+        }
+    }
+
+    private void drawTextY(Canvas canvas, int i) {
+        canvas.drawText(AxisStops.getHHMM(yStopsBuffer.minutes[i]),
+                mContentRect.left - labelHeaderColSeparation - maxLabelHeaderColWidth,
+                (i > 0) ? axisYPositionsBuffer[i] : (axisYPositionsBuffer[i] + labelHeaderColHeight),
+                headerColPaint);
+    }
+
+    /**
+     * Draws the chart axes onto the canvas.
+     */
+    private void drawAxes(Canvas canvas) {
+        int i;
+        //Draw axis X
+        canvas.drawLines(axisXLinesBuffer, 0, xStopsBuffer.axisLength * 4, gridPaint);
+
+        //Draw axis X
+        //Draw hours
+        if (mCurrentViewport.height() <= 2) {
+            for (i = 0; i < yStopsBuffer.axisLength; i += 4) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+        //Draw 30 unit (minutes)
+        if (mCurrentViewport.height() <= 1.5) {
+            for (i = 2; i < yStopsBuffer.axisLength; i += 4) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+        //Draw 15 unit (minutes)
+        if (mCurrentViewport.height() <= 0.7) {
+            for (i = 1; i < yStopsBuffer.axisLength; i += 2) {
+                canvas.drawLine(axisYLinesBuffer[i * 4 + 0], axisYLinesBuffer[i * 4 + 1], axisYLinesBuffer[i * 4 + 2], axisYLinesBuffer[i * 4 + 3], gridPaint);
+            }
+        }
+    }
+
+    private void drawEdgeEffectsUnclipped(Canvas canvas) {
+        boolean needsInvalidate = false;
+
+        if (!edgeEffectTop.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.left, mContentRect.top);
+            edgeEffectTop.setSize(mContentRect.width(), mContentRect.height());
+            if (edgeEffectTop.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!edgeEffectBottom.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(2 * mContentRect.left - mContentRect.right, mContentRect.bottom);
+            canvas.rotate(180, mContentRect.width(), 0);
+            edgeEffectBottom.setSize(mContentRect.width(), mContentRect.height());
+            if (edgeEffectBottom.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!edgeEffectLeft.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.left, mContentRect.bottom);
+            canvas.rotate(-90, 0, 0);
+            edgeEffectLeft.setSize(mContentRect.height(), mContentRect.width());
+            if (edgeEffectLeft.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (!edgeEffectRight.isFinished()) {
+            final int restoreCount = canvas.save();
+            canvas.translate(mContentRect.right, mContentRect.top);
+            canvas.rotate(90, 0, 0);
+            edgeEffectRight.setSize(mContentRect.height(), mContentRect.width());
+            if (edgeEffectRight.draw(canvas)) {
+                needsInvalidate = true;
+            }
+            canvas.restoreToCount(restoreCount);
+        }
+
+        if (needsInvalidate) {
+            ViewCompat.postInvalidateOnAnimation(this);
+        }
+    }
+
+    /*
+     * ADAPTOR define
+     */
+    //viewport to contentRect
+    private float getAxisx(float eventX) {
+        return mCurrentViewport.left + (eventX - mContentRect.left) / mContentRect.width() * mCurrentViewport.width();
+    }
+
+    private float getAxisy(float eventY) {
+        return mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
+    }
+
+    private int getIndexy(float y) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
+            if (y >= yStopsBuffer.stops[i] && y < yStopsBuffer.stops[i + 1]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int getFixBlockwithIndexy(float y) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
+            if (y >= yStopsBuffer.stops[i] && y < yStopsBuffer.stops[i + 1]) {
+                float delta = (yStopsBuffer.stops[i + 1] + yStopsBuffer.stops[i]) / 2;
+                if (y <= delta) return i;
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    private int getIndexyByEventY(final float eventY) {
+        return getIndexy(getAxisy(eventY));
+    }
+
+    private int getIndexx(float x) {
+        for (int i = 0; i < xStopsBuffer.axisLength - 1; i++) {
+            if (x >= xStopsBuffer.stops[i] && x < xStopsBuffer.stops[i + 1]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int getIndexxByEventX(float eventX) {
+        return getIndexx(getAxisx(eventX));
+    }
+
+    private void drawObjectbyCell(int row, int col) {
+        if (row == -1 || col == -1) return;
+        float left = getDrawX(xStopsBuffer.stops[col]);
+        float top = getDrawY(yStopsBuffer.stops[row]);
+        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), invalidPaint);
+    }
+
+    private void drawObjectbyEvent(float eventX, float eventY) {
+        int row = getIndexyByEventY(eventY);
+        int col = getIndexxByEventX(eventX);
+        drawObjectbyCell(row, col);
+
+    }
+
+    private float getBlockHeight() {
+        return (float) (minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (mCurrentViewport.bottom - mCurrentViewport.top)) * mContentRect.height());
+    }
+
+    private float getBlockWidth() {
+        return (float) (minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (mCurrentViewport.right - mCurrentViewport.left)) * mContentRect.width());
+    }
+
+    private boolean isScaleYAvailable(float viewportBottom, float viewportTop) {
+        return ((minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (viewportBottom - viewportTop))) <= maxDeltaH);
+    }
+
+    private boolean isScaleXAvailable(float viewportRight, float viewportLeft) {
+        return ((minDeltaW * ((AXIS_X_MAX - AXIS_X_MIN) / (viewportRight - viewportLeft))) <= maxDeltaW);
+    }
+
+    private int getIndexyByMinute(long minute) {
+        for (int i = 0; i < xStopsBuffer.axisLength - 1; i++) {
+            if (minute >= xStopsBuffer.minutes[i] && minute < xStopsBuffer.minutes[i + 1]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private float getAxisyfromMinute(long minute) {
+        return AXIS_Y_MIN + ((float) (minute - startHour)) / (numRow * blockHour) * 2;
+    }
+
+    //contentRect to viewport
+
+    /**
+     * Computes the pixel offset for the given X chart value. This may be outside the view bounds.
+     */
+    private float getDrawX(float x) {
+        return mContentRect.left
+                + mContentRect.width()
+                * (x - mCurrentViewport.left) / mCurrentViewport.width();
+    }
+
+    /**
+     * Computes the pixel offset for the given Y chart value. This may be outside the view bounds.
+     */
+    private float getDrawY(float y) {
+        return mContentRect.top
+                + mContentRect.height()
+                * ((y - mCurrentViewport.top) / mCurrentViewport.height());
+    }
+
+    //END ADAPTOR
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    //     Methods and objects related to gesture handling
+    //
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private boolean hitTest(float x, float y, PointF dest) {
+        if (!mContentRect.contains((int) x, (int) y)) {
+            return false;
+        }
+
+        dest.set(
+                mCurrentViewport.left
+                        + mCurrentViewport.width()
+                        * (x - mContentRect.left) / mContentRect.width(),
+                mCurrentViewport.top
+                        + mCurrentViewport.height()
+                        * (y - mContentRect.top) / mContentRect.height());
+        return true;
+    }
+
+    public void handleOnPress(MotionEvent event) {
+        if (objectData.isTouched(_downEventY) == false) {
+            objectData.setHeight(getBlockHeight());
+            objectData.setAxisy(_downEventY);
+
+            int index = getIndexy(objectData.getAxisy());
+            if (index != -1)
+                objectData.fixBlock(yStopsBuffer.stops[index]);
+
+        } else {
+            objectData.releaseObj();
+        }
+        invalidate();
+    }
+
+    private void handleOnMove(MotionEvent event) {
+        if (FLAG_SHOWPRESS) {
+            float axisytmp = Math.max(_moveEventY - _deltaMove, mContentRect.top);
+            objectData.setAxisy(Math.min(axisytmp, mContentRect.bottom - objectData.getHeight()));
+//            objectData.setAxisy(_moveEventY - _deltaMove);
+        } else {
+            objectData.setFlagMove(false);
+        }
+        invalidate();
+    }
+
+    private void releaseFlagTouch() {
+        FLAG_DOWN = FLAG_MOVE = FLAG_SCROLL = FLAG_SCALE = FLAG_UP = FLAG_FLING = FLAG_DOUBLETAP = FLAG_LONGPRESS = FLAG_SHOWPRESS = false;
+    }
+
+    private void constrainViewport() {
+        mCurrentViewport.left = Math.max(AXIS_X_MIN, mCurrentViewport.left);
+        mCurrentViewport.top = Math.max(AXIS_Y_MIN, mCurrentViewport.top);
+        mCurrentViewport.bottom = Math.max(Math.nextUp(mCurrentViewport.top),
+                Math.min(AXIS_Y_MAX, mCurrentViewport.bottom));
+        mCurrentViewport.right = Math.max(Math.nextUp(mCurrentViewport.left),
+                Math.min(AXIS_X_MAX, mCurrentViewport.right));
+    }
+
+    private void releaseEdgeEffects() {
+        edgeEffectLeftActive
+                = edgeEffectTopActive
+                = edgeEffectRightActive
+                = edgeEffectBottomActive
+                = false;
+        edgeEffectLeft.onRelease();
+        edgeEffectTop.onRelease();
+        edgeEffectRight.onRelease();
+        edgeEffectBottom.onRelease();
+    }
+
+    private void fling(int velocityX, int velocityY) {
+        releaseEdgeEffects();
+        computeScrollSurfaceSize(mSurfaceSizeBuffer);
+        scrollerStartViewport.set(mCurrentViewport);
+        int startX = (int) (mSurfaceSizeBuffer.x * (scrollerStartViewport.left - AXIS_X_MIN) / (
+                AXIS_X_MAX - AXIS_X_MIN));
+        int startY = (int) (mSurfaceSizeBuffer.y * (scrollerStartViewport.top - AXIS_Y_MIN) / (
+                AXIS_Y_MAX - AXIS_Y_MIN));
+        mScroller.forceFinished(true);
+        mScroller.fling(
+                startX,
+                startY,
+                velocityX,
+                velocityY,
+                0, mSurfaceSizeBuffer.x - mContentRect.width(),
+                0, mSurfaceSizeBuffer.y - mContentRect.height(),
+                mContentRect.width() / 2,
+                mContentRect.height() / 2);
+        ViewCompat.postInvalidateOnAnimation(this);
+    }
+
+    private void computeScrollSurfaceSize(Point out) {
+        out.set(
+                (int) (mContentRect.width() * (AXIS_X_MAX - AXIS_X_MIN)
+                        / mCurrentViewport.width()),
+                (int) (mContentRect.height() * (AXIS_Y_MAX - AXIS_Y_MIN)
+                        / mCurrentViewport.height()));
+    }
+
+    private void setViewportTopLeft(float x, float y) {
+        float curWidth = mCurrentViewport.width();
+        float curHeight = mCurrentViewport.height();
+        x = Math.max(AXIS_X_MIN, Math.min(x, AXIS_X_MAX - curWidth));
+        y = Math.max(AXIS_Y_MIN, Math.min(y, AXIS_Y_MAX - curHeight));
+        mCurrentViewport.set(x, y, x + curWidth, y + curHeight);
+        ViewCompat.postInvalidateOnAnimation(this);
+    }
 
 }
-
 
 /**
  * A simple class that animates double-touch zoom gestures. Functionally similar to a {@link
@@ -1481,16 +1647,14 @@ class ObjectData {
         movePaint.setShadowLayer(5.0f, -5.0f, 5.0f, Color.BLACK);
     }
 
-    public void Draw(Canvas canvas) {
+    public void draw(Canvas canvas) {
         if (isCreated()) {
             timeView.mainActivity.updateHeaderTime(true);
-//            int clipRestoreCount = canvas.save();
             canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
             if (flagMove) {
                 canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), movePaint);
             }
-//            canvas.restoreToCount(clipRestoreCount);
-        }else{
+        } else {
             timeView.mainActivity.updateHeaderTime(false);
         }
     }
