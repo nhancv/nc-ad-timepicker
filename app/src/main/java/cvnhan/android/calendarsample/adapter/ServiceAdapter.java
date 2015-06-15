@@ -54,6 +54,11 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
             ServiceInfo serviceInfo = serviceInfos.get(i);
             if (i == index) {
                 serviceInfo.isClicked = !serviceInfo.isClicked;
+                if(serviceInfo.isClicked){
+                    mainActivity.createObj(serviceInfo.duration);
+                }else{
+                    mainActivity.releaseObj();
+                }
             } else {
                 serviceInfo.isClicked = false;
             }
@@ -65,7 +70,7 @@ public class ServiceAdapter extends RecyclerView.Adapter<ServiceAdapter.ServiceV
     public void onBindViewHolder(final ServiceViewHolder serviceViewHolder, final int i) {
         final ServiceInfo item = serviceInfos.get(i);
         serviceViewHolder.tvName.setText(item.name);
-        serviceViewHolder.tvDuration.setText(item.duration);
+        serviceViewHolder.tvDuration.setText("("+item.duration+" m)");
 
         LinearLayout serviceInfoItem = serviceViewHolder.serviceInfoItem;
         if (item.isClicked) {

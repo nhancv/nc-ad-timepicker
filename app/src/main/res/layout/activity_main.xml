@@ -236,16 +236,11 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:padding="5dp"
-            app:invalidColor="#a6c"
-            app:invalidThickness="8dp"
             app:gridColor="#2000"
             app:gridThickness="1dp"
             app:labelHeaderColSeparation="5dp"
             app:labelHeaderColTextColor="#d000"
-            app:labelHeaderColTextSize="8sp"
-            app:labelHeaderRowSeparation="1dp"
-            app:labelHeaderRowTextColor="#d000"
-            app:labelHeaderRowTextSize="8sp"/>
+            app:labelHeaderColTextSize="8sp"/>
 
     </LinearLayout>
 </LinearLayout>

@@ -65,8 +65,8 @@ public class TimeView extends View {
 
     private static final float AXIS_X_MIN = -1f;
     private static final float AXIS_X_MAX = 1f;
-    private static final float AXIS_Y_MIN = -1f;
-    private static final float AXIS_Y_MAX = 1f;
+    public static final float AXIS_Y_MIN = -1f;
+    public static final float AXIS_Y_MAX = 1f;
 
     public static RectF mCurrentViewport = new RectF(AXIS_X_MIN, AXIS_Y_MIN, AXIS_X_MAX, AXIS_Y_MAX);
 
@@ -81,9 +81,9 @@ public class TimeView extends View {
     private static int blockHour = 15; //15 minutes
     private static int numColum = 1;
     private static int numRow = 56; // ==> get lastWorkingHour of shop: startHour + blockHour*numRow = 21:00
-    private static float currentTime = -2;
-    private static float lastAdmission = -2;
-
+    public static float currentTime = -2;
+    public static float lastAdmission = 2;
+    public static float numBlockforService = 1;
     private static double minDeltaH = 1, maxDeltaH = 1; // block in viewport
     private static double minDeltaW = 1, maxDeltaW = 1;
     private float density = getResources().getDisplayMetrics().density;
@@ -128,11 +128,6 @@ public class TimeView extends View {
     private int labelHeaderColHeight;
     private int maxLabelHeaderColWidth;
     private Paint headerColPaint;
-
-    //Data
-    private float invalidThickness;
-    private int invalidColor;
-    private Paint invalidPaint;
 
     //Grid
     private float gridThickness;
@@ -193,11 +188,6 @@ public class TimeView extends View {
                     R.styleable.TimeView_gridThickness, gridThickness);
             gridColor = a.getColor(
                     R.styleable.TimeView_gridColor, gridColor);
-
-            invalidThickness = a.getDimension(
-                    R.styleable.TimeView_invalidThickness, invalidThickness);
-            invalidColor = a.getColor(
-                    R.styleable.TimeView_invalidColor, invalidColor);
 
             labelHeaderColTextColor = a.getColor(
                     R.styleable.TimeView_labelHeaderColTextColor, labelHeaderColTextColor);
@@ -281,8 +271,10 @@ public class TimeView extends View {
         super.onDraw(canvas);
         this.canvas = canvas;
         drawViewport(canvas);
-        drawObjectData(canvas);
         drawInvalidArea(canvas);
+        drawCTandLA(canvas);
+        drawObjectData(canvas);
+
     }
 
     @Override
@@ -606,9 +598,7 @@ public class TimeView extends View {
         scrollerStartViewport.set(mCurrentViewport);
         mZoomer.forceFinished(true);
         mZoomer.startZoom(ZOOM_AMOUNT * 3f);
-        zoomFocalPoint.set(
-                (mCurrentViewport.right + mCurrentViewport.left) / 2,
-                (mCurrentViewport.bottom + mCurrentViewport.top) / 2);
+        zoomFocalPoint.set((mCurrentViewport.right + mCurrentViewport.left) / 2, Math.max(mCurrentViewport.top, getAxisyfromMinute(Calendar.getInstance().getTime().getHours() * 60 + Calendar.getInstance().getTime().getMinutes())));
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
@@ -704,15 +694,6 @@ public class TimeView extends View {
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    public float getInvalidThickness() {
-        return invalidThickness;
-    }
-
-    public void setInvalidThickness(float invalidThickness) {
-        invalidThickness = invalidThickness;
-    }
-
-
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //
     //     Methods and classes related to view state persistence.
@@ -799,30 +780,62 @@ public class TimeView extends View {
             return String.format("%02d:%02d", minutes / 60, minutes % 60);
         }
 
+        public float[] getStops() {
+            return stops;
+        }
 
     }
 
-    private static class InvalidArea {
+    public static class InvalidArea {
         float first, last;
         int type; //1 for timeoff, 2 for staff not available
         String message;
+        private Paint invalidPaint;
 
         public InvalidArea() {
             type = 1;
             message = "";
-            first = last = 0;
+            first = last = -1;
+            initPaint();
         }
 
         public InvalidArea(int type, String message) {
             this.type = type;
             this.message = message;
+            first = last = -1;
+            initPaint();
         }
 
-        public InvalidArea( int type, String message, float first, float last) {
+        public InvalidArea(int type, String message, float first, float last) {
             this.type = type;
             this.message = message;
             this.first = first;
             this.last = last;
+            initPaint();
+        }
+
+        private void initPaint() {
+            invalidPaint = new Paint();
+            invalidPaint.setStrokeWidth(8);
+            invalidPaint.setColor(Color.parseColor("gray"));
+            invalidPaint.setStyle(Paint.Style.FILL);
+            invalidPaint.setAntiAlias(true);
+        }
+
+        public Paint getInvalidPaint() {
+            if (type == 1) {
+                return getInvalidPaintType1();
+            } else return getInvalidPaintType2();
+        }
+
+        private Paint getInvalidPaintType1() {
+            invalidPaint.setAlpha(70);
+            return invalidPaint;
+        }
+
+        private Paint getInvalidPaintType2() {
+            invalidPaint.setAlpha(100);
+            return invalidPaint;
         }
     }
 
@@ -851,15 +864,110 @@ public class TimeView extends View {
     }
 
     public void initInvalidAreas() {
-//        InvalidArea invalidArea=new InvalidArea(1, "", AXIS_Y_MIN, getAxisyfromMinute(1275));
-//        invalidAreas.add(invalidArea);
+        invalidAreas = new ArrayList<>();
+        InvalidArea invalidArea = new InvalidArea(1, "", AXIS_Y_MIN, AXIS_Y_MIN);
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(2, "staff off", getAxisyfromMinute(300), getAxisyfromMinute(360));
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(1, "", getAxisyfromMinute(360), getAxisyfromMinute(360));
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(2, "staff n/a", getAxisyfromMinute(540), getAxisyfromMinute(570));
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(1, "", getAxisyfromMinute(570), getAxisyfromMinute(570));
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(2, "staff test", getAxisyfromMinute(1080), getAxisyfromMinute(1125));
+        invalidAreas.add(invalidArea);
+        invalidArea = new InvalidArea(1, "", getAxisyfromMinute(1125), getAxisyfromMinute(1125));
+        invalidAreas.add(invalidArea);
+
+        float min = getAxisyfromMinute(Calendar.getInstance().getTime().getHours() * 60 + Calendar.getInstance().getTime().getMinutes());
+        for (int i = invalidAreas.size() - 1; i >= 0; i--) {
+            InvalidArea item = invalidAreas.get(i);
+            if (item.first <= min) {
+                if (item.type == 1) {
+                    if (getLastIndexyByaxisy(min) != -1)
+                        item.last = yStopsBuffer.stops[getLastIndexyByaxisy(min)];
+                }
+                for (int j = 0; j < i; j++) {
+                    InvalidArea subitem = invalidAreas.get(j);
+                    if (subitem.type == 1) {
+                        subitem.last = invalidAreas.get(j + 1).first;
+                    }
+                }
+                break;
+            }
+
+        }
     }
 
     public void updateCurrentTime(long currTimeMinutes) {
-        if(invalidAreas.size()==0){
+        if (invalidAreas.size() == 0) {
             invalidAreas.add(new InvalidArea(1, "", AXIS_Y_MIN, getAxisyfromMinute(currTimeMinutes)));
+        } else {
+            float axisy = getAxisyfromMinute(currTimeMinutes);
+            for (int i = invalidAreas.size() - 1; i >= 0; i--) {
+                InvalidArea item = invalidAreas.get(i);
+                if (item.first <= axisy) {
+                    if (item.type == 1) {
+                        if (getLastIndexyByaxisy(axisy) != -1)
+                            item.last = yStopsBuffer.stops[getLastIndexyByaxisy(axisy)];
+                    }
+                }
+                break;
+            }
         }
     }
+
+    public void createObj(long minutes) {
+        objectData.createObj(minutes, yStopsBuffer.stops);
+        setNumBlockforService(minutes);
+        invalidate();
+    }
+
+    public void releaseObj() {
+        objectData.setHeight(0);
+        setNumBlockforService(getBlockHour());
+        invalidate();
+    }
+
+    public void setNumBlockforService(long minutes) {
+        numBlockforService = objectData.roundMinutestoBlock(minutes) / getBlockHour();
+    }
+
+    public boolean checkTouchinInvalidArea(float axisy, float heightofObj) {
+        int index = getIndexy(axisy);
+        float axisyf = (index != -1) ? yStopsBuffer.stops[index] : axisy;
+        float h = heightofObj / mContentRect.height() * mCurrentViewport.height();
+        for (InvalidArea item : invalidAreas) {
+            if ((axisyf + h) > item.first && (axisyf + h) <= item.last) {
+                return true;
+            }
+            if ((axisy) > item.first && (axisy) < item.last && (axisy + h) > item.last) {
+                return true;
+            }
+            if ((axisyf) < item.first && (axisy + h) >= item.last) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean checkTouchinInvalidAreaonHandleMove(float axisy, float heightofObj) {
+        float h = heightofObj / mContentRect.height() * mCurrentViewport.height();
+        for (InvalidArea item : invalidAreas) {
+            if ((axisy + h) > item.first && (axisy + h) < item.last) {
+                return true;
+            }
+            if ((axisy) > item.first && (axisy) < item.last && (axisy + h) > item.last) {
+                return true;
+            }
+            if ((axisy) <= item.first && (axisy + h) >= item.last) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int getBlockHour() {
         return blockHour;
     }
@@ -935,20 +1043,14 @@ public class TimeView extends View {
         gridPaint.setColor(gridColor);
         gridPaint.setStyle(Paint.Style.STROKE);
 
-        invalidPaint = new Paint();
-        invalidPaint.setStrokeWidth(invalidThickness);
-        invalidPaint.setColor(invalidColor);
-        invalidPaint.setStyle(Paint.Style.FILL);
-        invalidPaint.setAntiAlias(true);
-        invalidPaint.setAlpha(50);
-
-        initInvalidAreas();
         timerHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                Date date=Calendar.getInstance().getTime();
+                Date date = Calendar.getInstance().getTime();
                 long minutes = date.getHours() * 60 + date.getMinutes();
                 updateCurrentTime(minutes);
+                if (objectData != null)
+                    objectData.updatewithCurrentTime(minutes, yStopsBuffer.stops);
                 setCurrentTime(getAxisyfromMinute(minutes));
                 timerHandler.postDelayed(this, 5000);
             }
@@ -1049,10 +1151,17 @@ public class TimeView extends View {
         canvas.clipRect(mContentRect);
         drawAxes(canvas);
         drawEdgeEffectsUnclipped(canvas);
-        drawCurrentTime(canvas);
-        drawLastAdmission(canvas);
         canvas.restoreToCount(clipRestoreCount);
         canvas.drawRect(mContentRect, gridPaint);
+    }
+
+    //draw current time line and last admission time line
+    private void drawCTandLA(Canvas canvas) {
+        int clipRestoreCount = canvas.save();
+        canvas.clipRect(mContentRect);
+        drawLastAdmission(canvas);
+        drawCurrentTime(canvas);
+        canvas.restoreToCount(clipRestoreCount);
     }
 
     private void drawCurrentTime(Canvas canvas) {
@@ -1068,11 +1177,13 @@ public class TimeView extends View {
     }
 
     private void drawInvalidArea(Canvas canvas) {
-        for(InvalidArea item:invalidAreas){
-            canvas.drawRect(mContentRect.left, Math.max(getDrawY(item.first), mContentRect.top), mContentRect.right, Math.min(getDrawY(item.last), mContentRect.bottom), invalidPaint);
-
+        for (InvalidArea item : invalidAreas) {
+            Paint paint = item.getInvalidPaint();
+            canvas.drawRect(mContentRect.left, Math.max(getDrawY(item.first), mContentRect.top), mContentRect.right, Math.min(getDrawY(item.last), mContentRect.bottom), paint);
+            if (item.type == 2) {
+                canvas.drawText(item.message + "", mContentRect.left + item.invalidPaint.measureText(item.message) / 2, getDrawY(item.first) + (getDrawY(item.last) - getDrawY(item.first)) / 2, paint);
+            }
         }
-
     }
 
     private void drawObjectData(Canvas canvas) {
@@ -1220,7 +1331,7 @@ public class TimeView extends View {
         return mCurrentViewport.top + (eventY - mContentRect.top) / mContentRect.height() * mCurrentViewport.height();
     }
 
-    private int getIndexy(float y) {
+    public int getIndexy(float y) {
         for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
             if (y >= yStopsBuffer.stops[i] && y < yStopsBuffer.stops[i + 1]) {
                 return i;
@@ -1240,8 +1351,13 @@ public class TimeView extends View {
         return -1;
     }
 
-    private int getIndexyByEventY(final float eventY) {
-        return getIndexy(getAxisy(eventY));
+    public int getLastIndexyByaxisy(final float axisy) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
+            if (axisy >= yStopsBuffer.stops[i] && axisy < yStopsBuffer.stops[i + 1]) {
+                return i + 1;
+            }
+        }
+        return -1;
     }
 
     private int getIndexx(float x) {
@@ -1257,21 +1373,7 @@ public class TimeView extends View {
         return getIndexx(getAxisx(eventX));
     }
 
-    private void drawObjectbyCell(int row, int col) {
-        if (row == -1 || col == -1) return;
-        float left = getDrawX(xStopsBuffer.stops[col]);
-        float top = getDrawY(yStopsBuffer.stops[row]);
-        canvas.drawRect(Math.max(left, mContentRect.left), Math.max(top, mContentRect.top), Math.min(left + getBlockWidth(), mContentRect.right), Math.min(top + getBlockHeight(), mContentRect.bottom), invalidPaint);
-    }
-
-    private void drawObjectbyEvent(float eventX, float eventY) {
-        int row = getIndexyByEventY(eventY);
-        int col = getIndexxByEventX(eventX);
-        drawObjectbyCell(row, col);
-
-    }
-
-    private float getBlockHeight() {
+    public float getBlockHeight() {
         return (float) (minDeltaH * ((AXIS_Y_MAX - AXIS_Y_MIN) / (mCurrentViewport.bottom - mCurrentViewport.top)) * mContentRect.height());
     }
 
@@ -1297,9 +1399,10 @@ public class TimeView extends View {
     }
 
     private float getAxisyfromMinute(long minute) {
+//        Log.e(TAG,"minute="+minute+ " startHour="+startHour+ " AXIS_Y_MIN="+AXIS_Y_MIN+ " ((float) (minute - startHour)) / (numRow * blockHour) * 2="+(((float) (minute - startHour)) / (numRow * blockHour) * 2)+
+//        " ((float) (minute - startHour)) / (numRow * blockHour)="+(((float) (minute - startHour)) / (numRow * blockHour)));
         return AXIS_Y_MIN + ((float) (minute - startHour)) / (numRow * blockHour) * 2;
     }
-
     //contentRect to viewport
 
     /**
@@ -1346,13 +1449,7 @@ public class TimeView extends View {
 
     public void handleOnPress(MotionEvent event) {
         if (objectData.isTouched(_downEventY) == false) {
-            objectData.setHeight(getBlockHeight());
-            objectData.setAxisy(_downEventY);
-
-            int index = getIndexy(objectData.getAxisy());
-            if (index != -1)
-                objectData.fixBlock(yStopsBuffer.stops[index]);
-
+            objectData.createObj(_downEventY, getBlockHeight() * numBlockforService, yStopsBuffer.stops);
         } else {
             objectData.releaseObj();
         }
@@ -1360,13 +1457,18 @@ public class TimeView extends View {
     }
 
     private void handleOnMove(MotionEvent event) {
-        if (FLAG_SHOWPRESS) {
-            float axisytmp = Math.max(_moveEventY - _deltaMove, mContentRect.top);
-            objectData.setAxisy(Math.min(axisytmp, mContentRect.bottom - objectData.getHeight()));
-//            objectData.setAxisy(_moveEventY - _deltaMove);
-        } else {
-            objectData.setFlagMove(false);
-        }
+        if (checkTouchinInvalidAreaonHandleMove(getAxisy(_moveEventY - _deltaMove), objectData.getHeight()) == false)
+            if (FLAG_SHOWPRESS) {
+                if (getDrawY(objectData.getAxisy()) >= mContentRect.bottom - getBlockHeight() * numBlockforService) {
+                    panDown();
+                } else if (getDrawY(objectData.getAxisy()) <= mContentRect.top + getBlockHeight() * numBlockforService) {
+                    panUp();
+                }
+                float axisYtmp = Math.max(Math.max(_moveEventY - _deltaMove, mContentRect.top), (getLastIndexyByaxisy(currentTime) != -1) ? getDrawY(yStopsBuffer.stops[getLastIndexyByaxisy(currentTime)]) : getDrawY(currentTime));
+                objectData.setAxisy(Math.min(Math.min(axisYtmp, mContentRect.bottom - objectData.getHeight()), getDrawY(lastAdmission) - objectData.getHeight()));
+            } else {
+                objectData.setFlagMove(false);
+            }
         invalidate();
     }
 
@@ -1608,9 +1710,9 @@ class ScaleGestureDetectorCompat {
 class ObjectData {
     private static final String TAG = "ObjectData";
     private static ObjectData objectData = null;
-    private float height = 0, axisx = -1, axisy = -2;
+    private float height = 0, axisy = -2;
     private float dataThickness = 1;
-    private String dataColor = "#f6921e";
+    private String dataColor = "#FFFF66";
     private Paint dataPaint;
 
     private TimeView timeView;
@@ -1634,7 +1736,7 @@ class ObjectData {
         dataPaint.setColor(Color.parseColor(dataColor));
         dataPaint.setStyle(Paint.Style.FILL);
         dataPaint.setAntiAlias(true);
-        dataPaint.setAlpha(50);
+        dataPaint.setAlpha(90);
 
         movePaint = new Paint();
         movePaint.setStrokeWidth(dataThickness * 2);
@@ -1650,6 +1752,7 @@ class ObjectData {
     public void draw(Canvas canvas) {
         if (isCreated()) {
             timeView.mainActivity.updateHeaderTime(true);
+            updateHeight();
             canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), dataPaint);
             if (flagMove) {
                 canvas.drawRect(TimeView.mContentRect.left, Math.max(getDrawY(axisy), TimeView.mContentRect.top), TimeView.mContentRect.right, Math.min(getDrawY(axisy) + height, TimeView.mContentRect.bottom), movePaint);
@@ -1657,6 +1760,10 @@ class ObjectData {
         } else {
             timeView.mainActivity.updateHeaderTime(false);
         }
+    }
+
+    public void updateHeight() {
+        height = timeView.getBlockHeight() * TimeView.numBlockforService;
     }
 
     public float getHeight() {
@@ -1674,7 +1781,12 @@ class ObjectData {
     }
 
     public void setAxisy(float eventY) {
-        this.axisy = TimeView.mCurrentViewport.top + (eventY - TimeView.mContentRect.top) / TimeView.mContentRect.height() * TimeView.mCurrentViewport.height();
+        float axisytemp = TimeView.mCurrentViewport.top + (eventY - TimeView.mContentRect.top) / TimeView.mContentRect.height() * TimeView.mCurrentViewport.height();
+        this.axisy = axisytemp;
+    }
+
+    public float getaxisyfromEventY(float eventY) {
+        return TimeView.mCurrentViewport.top + (eventY - TimeView.mContentRect.top) / TimeView.mContentRect.height() * TimeView.mCurrentViewport.height();
     }
 
     public boolean getFlagMove() {
@@ -1690,12 +1802,12 @@ class ObjectData {
             float drawY = getDrawY(axisy);
             if (eventY >= drawY && eventY <= (drawY + height)) return true;
         }
-//        Log.e(TAG, "isTouched=false");
         return false;
     }
 
     public void releaseObj() {
-        height = axisx = axisy = 0;
+        height = 0;
+        axisy = -2;
     }
 
     public float getAxisy() {
@@ -1704,7 +1816,6 @@ class ObjectData {
 
     public boolean isCreated() {
         if (height > 0 && axisy != -2) {
-//            Log.e(TAG, "isCreated");
             return true;
         }
         return false;
@@ -1712,6 +1823,47 @@ class ObjectData {
 
     public void fixBlock(float y) {
         axisy = y;
+    }
+
+    public void updatewithCurrentTime(long currentTime, float[] ystops) {
+        if (isCreated()) {
+            if (timeView.checkTouchinInvalidArea(axisy, height)) {
+                releaseObj();
+            }
+        }
+    }
+
+    public void createObj(float EventY, float height, float[] ystops) {
+        float axisYtmp = Math.max(Math.max(EventY, timeView.mContentRect.top), (timeView.getLastIndexyByaxisy(timeView.currentTime) != -1) ? getDrawY(ystops[timeView.getLastIndexyByaxisy(timeView.currentTime)]) : getDrawY(timeView.currentTime));
+        float AxisY=Math.min(axisYtmp, getDrawY(timeView.AXIS_Y_MAX) - height);
+        if (timeView.checkTouchinInvalidArea(getaxisyfromEventY(AxisY), height)) return;
+
+        setAxisy(AxisY);
+        setHeight(height);
+        int index = timeView.getIndexy(getAxisy());
+        if (index != -1)
+            fixBlock(ystops[index]);
+    }
+
+    public void createObj(long minutes, float[] ystops) {
+        float height = convertMinutestoheight(minutes);
+        createObj(getDrawY((axisy != 2) ? axisy : 0), height, ystops);
+    }
+
+    public float convertMinutestoheight(long minutes) {
+        return (roundMinutestoBlock(minutes) / timeView.getBlockHour()) * timeView.getBlockHeight();
+    }
+
+    public long roundMinutestoBlock(long minutes) {
+        int block = timeView.getBlockHour();
+        if (minutes % block != 0) {
+            minutes = (long) Math.ceil(((double) minutes) / block) * block;
+        }
+        return minutes;
+    }
+
+    public float convertHeighttoViewportunit() {
+        return height / timeView.mContentRect.height();
     }
 }
 

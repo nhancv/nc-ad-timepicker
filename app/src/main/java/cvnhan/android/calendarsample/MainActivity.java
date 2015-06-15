@@ -82,29 +82,30 @@ public class MainActivity extends Activity {
         staffView.getItemAnimator().setSupportsChangeAnimations(true);
 
         mGraphView.injectMainActivity(this);
-        mGraphView.setupTimeView(600,50,720);
+        mGraphView.setupTimeView(240,79);
+        mGraphView.initInvalidAreas();
         mGraphView.zoomMaximum();
     }
 
     private List<ServiceInfo> createServiceList() {
         List<ServiceInfo> result = new ArrayList<>();
-        ServiceInfo item = new ServiceInfo("Massage", "(30 m)");
+        ServiceInfo item = new ServiceInfo("Massage", 10);
         result.add(item);
-        item = new ServiceInfo("Shampoo, blow dry", "(45 m)");
+        item = new ServiceInfo("Shampoo, blow dry", 14);
         result.add(item);
-        item = new ServiceInfo("Spa", "(90 m)");
+        item = new ServiceInfo("Spa", 90);
         result.add(item);
-        item = new ServiceInfo("Nail", "(45 m)");
+        item = new ServiceInfo("Nail", 45);
         result.add(item);
-        item = new ServiceInfo("Washing, Conditioning & Softening", "(90 m)");
+        item = new ServiceInfo("Washing, Conditioning & Softening", 90);
         result.add(item);
-        item = new ServiceInfo("Tia long", "(30 m)");
+        item = new ServiceInfo("Tia long", 30);
         result.add(item);
-        item = new ServiceInfo("Nho toc ngua", "(45 m)");
+        item = new ServiceInfo("Nho toc ngua", 45);
         result.add(item);
-        item = new ServiceInfo("Suong", "(45 m)");
+        item = new ServiceInfo("Suong", 45);
         result.add(item);
-        item = new ServiceInfo("Hehe", "(60 m)");
+        item = new ServiceInfo("Hehe", 60);
         result.add(item);
         return result;
     }
@@ -141,6 +142,12 @@ public class MainActivity extends Activity {
         return result;
     }
 
+    public void createObj(long minutes){
+        mGraphView.createObj(minutes);
+    }
+    public void releaseObj(){
+        mGraphView.releaseObj();
+    }
 
     public void updateHeaderService(boolean status) {
         if (status) {
