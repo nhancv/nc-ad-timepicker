@@ -24,6 +24,7 @@ import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -297,10 +298,19 @@ public class TimeView extends View {
             case (MotionEvent.ACTION_UP):
 //                Utils.e("ACTION_UP");
                 FLAG_UP = true;
-                int index = getFixBlockwithIndexy(objectData.getAxisy());
-                if (index != -1) {
-                    objectData.fixBlock(yStopsBuffer.stops[index]);
-                }
+//                if (objectData.getFlagMove()) {
+                    int index = getFixBlockwithIndexy(objectData.getAxisy());
+                    if (index != -1) {
+                        objectData.fixBlock(yStopsBuffer.stops[index]);
+                    }
+                    index = getFixBlockwithIndexyOnMove();
+//                    Log.e(TAG, "ACTION_UP index="+index);
+                    if (index != -1) {
+                        objectData.fixBlock(yStopsBuffer.stops[index]);
+                    }else{
+                        objectData.releaseObj();
+                    }
+
                 objectData.setFlagMove(false);
                 invalidate();
                 releaseFlagTouch();
@@ -934,23 +944,34 @@ public class TimeView extends View {
         numBlockforService = objectData.roundMinutestoBlock(minutes) / getBlockHour();
     }
 
-    public boolean checkTouchinInvalidArea(float axisy, float heightofObj) {
+    public int checkTouchinInvalidArea(float axisy, float heightofObj) {
         int index = getIndexy(axisy);
         float axisyf = (index != -1) ? yStopsBuffer.stops[index] : axisy;
         float h = heightofObj / mContentRect.height() * mCurrentViewport.height();
-        for (InvalidArea item : invalidAreas) {
+        //shif 3 bit: result is index and case in lat 3bit . Ex: result is 9 as index = 1 and case = 1 (1 001)
+        for (int i = 0; i < invalidAreas.size(); i++) {
+            InvalidArea item = invalidAreas.get(i);
+            if (item.last - item.first == 0) continue;
             if ((axisyf + h) > item.first && (axisyf + h) <= item.last) {
-                return true;
+                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 1=" + (1 + (i << 3)));
+                return 1 + (i << 3);
             }
-            if ((axisy) > item.first && (axisy) < item.last && (axisy + h) > item.last) {
-                return true;
+            if ((axisyf) > item.first && (axisyf) < item.last && (axisyf + h) > item.last) {
+                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 2" + (2 + (i << 3)));
+                return 2 + (i << 3);
             }
-            if ((axisyf) < item.first && (axisy + h) >= item.last) {
-                return true;
+            if ((axisyf) <= item.first && (axisyf + h) >= item.last) {
+                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 3"  + (3 + (i << 3)));
+                return 3 + (i << 3);
             }
+//            if ((axisyf) >= item.first && (axisyf + h) <= item.last) {
+//                Log.e(TAG," axisyf="+axisyf+" item.first="+item.first+ " item.last="+item.last+ " axisyf+h="+(axisyf+h)+" CASE 4");
+//                return 4;
+//            }
         }
-        return false;
+        return 0;
     }
+
 
     public boolean checkTouchinInvalidAreaonHandleMove(float axisy, float heightofObj) {
         float h = heightofObj / mContentRect.height() * mCurrentViewport.height();
@@ -1351,6 +1372,44 @@ public class TimeView extends View {
         return -1;
     }
 
+    private int getFixBlockwithIndexyOnMove() {
+        int resultcheck = checkTouchinInvalidArea(objectData.getAxisy(), objectData.getHeight());
+        int caseinvalid = (resultcheck & 7);
+        float h = objectData.getHeight() / mContentRect.height() * mCurrentViewport.height();
+        InvalidArea invalidArea = invalidAreas.get(resultcheck >> 3);
+//        Log.e(TAG, "resultcheck="+resultcheck+" caseinvalid="+caseinvalid +" indexInvalid=" + (resultcheck>>3));
+
+        switch (caseinvalid) {
+            case 1:
+//                Log.e(TAG, "(invalidArea.last-invalidArea.first)="+(invalidArea.last-invalidArea.first)+" h="+h);
+//                Log.e(TAG, "checkTouchinInvalidArea(invalidArea.first - h, objectData.getHeight())="+checkTouchinInvalidArea(invalidArea.first - h, objectData.getHeight()));
+//                Log.e(TAG, "checkTouchinInvalidArea(invalidArea.last, objectData.getHeight()="+checkTouchinInvalidArea(invalidArea.last, objectData.getHeight()));
+
+                if (checkTouchinInvalidArea(invalidArea.first - h, objectData.getHeight()) == 0) {
+//                    Log.e(TAG, "invalidArea.first - h="+(invalidArea.first - h));
+                    return getFixBlockwithIndexy(invalidArea.first - h);
+                } else {
+                    if (checkTouchinInvalidArea(invalidArea.last, objectData.getHeight()) == 0) {
+//                        Log.e(TAG, "invalidArea.last="+invalidArea.last);
+                        return getFixBlockwithIndexy(invalidArea.last);
+                    }
+                }
+                break;
+            default: //case 2 and other
+                if (checkTouchinInvalidArea(invalidArea.last, objectData.getHeight()) == 0) {
+//                    Log.e(TAG, "invalidArea.last");
+                    return getFixBlockwithIndexy(invalidArea.last);
+                } else {
+                    if (checkTouchinInvalidArea(invalidArea.first - h, objectData.getHeight()) == 0) {
+//                        Log.e(TAG, "invalidArea.first - h");
+                        return getFixBlockwithIndexy(invalidArea.first - h);
+                    }
+                }
+                break;
+        }
+        return -1;
+    }
+
     public int getLastIndexyByaxisy(final float axisy) {
         for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
             if (axisy >= yStopsBuffer.stops[i] && axisy < yStopsBuffer.stops[i + 1]) {
@@ -1390,8 +1449,8 @@ public class TimeView extends View {
     }
 
     private int getIndexyByMinute(long minute) {
-        for (int i = 0; i < xStopsBuffer.axisLength - 1; i++) {
-            if (minute >= xStopsBuffer.minutes[i] && minute < xStopsBuffer.minutes[i + 1]) {
+        for (int i = 0; i < yStopsBuffer.axisLength - 1; i++) {
+            if (minute >= yStopsBuffer.minutes[i] && minute < yStopsBuffer.minutes[i + 1]) {
                 return i;
             }
         }
@@ -1399,9 +1458,8 @@ public class TimeView extends View {
     }
 
     private float getAxisyfromMinute(long minute) {
-//        Log.e(TAG,"minute="+minute+ " startHour="+startHour+ " AXIS_Y_MIN="+AXIS_Y_MIN+ " ((float) (minute - startHour)) / (numRow * blockHour) * 2="+(((float) (minute - startHour)) / (numRow * blockHour) * 2)+
-//        " ((float) (minute - startHour)) / (numRow * blockHour)="+(((float) (minute - startHour)) / (numRow * blockHour)));
-        return AXIS_Y_MIN + ((float) (minute - startHour)) / (numRow * blockHour) * 2;
+        int index = getIndexyByMinute(minute);
+        return (index != -1) ? yStopsBuffer.stops[index] : (AXIS_Y_MIN + ((float) (minute - startHour)) / (numRow * blockHour) * 2);
     }
     //contentRect to viewport
 
@@ -1457,18 +1515,18 @@ public class TimeView extends View {
     }
 
     private void handleOnMove(MotionEvent event) {
-        if (checkTouchinInvalidAreaonHandleMove(getAxisy(_moveEventY - _deltaMove), objectData.getHeight()) == false)
-            if (FLAG_SHOWPRESS) {
-                if (getDrawY(objectData.getAxisy()) >= mContentRect.bottom - getBlockHeight() * numBlockforService) {
-                    panDown();
-                } else if (getDrawY(objectData.getAxisy()) <= mContentRect.top + getBlockHeight() * numBlockforService) {
-                    panUp();
-                }
-                float axisYtmp = Math.max(Math.max(_moveEventY - _deltaMove, mContentRect.top), (getLastIndexyByaxisy(currentTime) != -1) ? getDrawY(yStopsBuffer.stops[getLastIndexyByaxisy(currentTime)]) : getDrawY(currentTime));
-                objectData.setAxisy(Math.min(Math.min(axisYtmp, mContentRect.bottom - objectData.getHeight()), getDrawY(lastAdmission) - objectData.getHeight()));
-            } else {
-                objectData.setFlagMove(false);
+//        if (checkTouchinInvalidAreaonHandleMove(getAxisy(_moveEventY - _deltaMove), objectData.getHeight()) == false)
+        if (FLAG_SHOWPRESS) {
+            if (getDrawY(objectData.getAxisy()) >= mContentRect.bottom - getBlockHeight() * numBlockforService) {
+                panDown();
+            } else if (getDrawY(objectData.getAxisy()) <= mContentRect.top) {
+                panUp();
             }
+            float axisYtmp = Math.max(Math.max(_moveEventY - _deltaMove, mContentRect.top), (getLastIndexyByaxisy(currentTime) != -1) ? getDrawY(yStopsBuffer.stops[getLastIndexyByaxisy(currentTime)]) : getDrawY(currentTime));
+            objectData.setAxisy(Math.min(Math.min(axisYtmp, mContentRect.bottom - objectData.getHeight()), getDrawY(lastAdmission) - objectData.getHeight()));
+        } else {
+            objectData.setFlagMove(false);
+        }
         invalidate();
     }
 
@@ -1827,7 +1885,7 @@ class ObjectData {
 
     public void updatewithCurrentTime(long currentTime, float[] ystops) {
         if (isCreated()) {
-            if (timeView.checkTouchinInvalidArea(axisy, height)) {
+            if (flagMove == false && timeView.checkTouchinInvalidArea(axisy, height) > 0) {
                 releaseObj();
             }
         }
@@ -1835,11 +1893,12 @@ class ObjectData {
 
     public void createObj(float EventY, float height, float[] ystops) {
         float axisYtmp = Math.max(Math.max(EventY, timeView.mContentRect.top), (timeView.getLastIndexyByaxisy(timeView.currentTime) != -1) ? getDrawY(ystops[timeView.getLastIndexyByaxisy(timeView.currentTime)]) : getDrawY(timeView.currentTime));
-        float AxisY=Math.min(axisYtmp, getDrawY(timeView.AXIS_Y_MAX) - height);
-        if (timeView.checkTouchinInvalidArea(getaxisyfromEventY(AxisY), height)) return;
+        float AxisY = Math.min(axisYtmp, getDrawY(timeView.AXIS_Y_MAX) - height);
+//        if (timeView.checkTouchinInvalidArea(getaxisyfromEventY(AxisY), height)) return;
 
         setAxisy(AxisY);
         setHeight(height);
+        if (timeView.checkTouchinInvalidArea(axisy, height) > 0) releaseObj();
         int index = timeView.getIndexy(getAxisy());
         if (index != -1)
             fixBlock(ystops[index]);
