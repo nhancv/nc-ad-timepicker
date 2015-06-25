@@ -8,6 +8,7 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +22,7 @@ import cvnhan.android.calendarsample.adapter.ServiceAdapter;
 import cvnhan.android.calendarsample.adapter.StaffAdapter;
 import cvnhan.android.calendarsample.model.ServiceInfo;
 import cvnhan.android.calendarsample.model.StaffInfo;
+import cvnhan.android.calendarsample.widget.OnSwipeTouchListener;
 import cvnhan.android.calendarsample.widget.TimeView;
 
 
@@ -82,9 +84,32 @@ public class MainActivity extends Activity {
         staffView.getItemAnimator().setSupportsChangeAnimations(true);
 
         mGraphView.injectMainActivity(this);
-        mGraphView.setupTimeView(240,79);
+        mGraphView.setupTimeView(240, 79);
         mGraphView.initInvalidAreas();
         mGraphView.zoomMaximum();
+
+        serviceView.setOnTouchListener(new OnSwipeTouchListener(getApplicationContext()) {
+            public void onSwipeTop() {
+                Toast.makeText(MainActivity.this, "top", Toast.LENGTH_SHORT).show();
+
+            }
+
+            public void onSwipeRight() {
+                Toast.makeText(MainActivity.this, "right", Toast.LENGTH_SHORT).show();
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(600, LinearLayout.LayoutParams.WRAP_CONTENT);
+                serviceView.setLayoutParams(lp);
+            }
+
+            public void onSwipeLeft() {
+                Toast.makeText(MainActivity.this, "left", Toast.LENGTH_SHORT).show();
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(200, LinearLayout.LayoutParams.WRAP_CONTENT);
+                serviceView.setLayoutParams(lp);
+            }
+
+            public void onSwipeBottom() {
+                Toast.makeText(MainActivity.this, "bottom", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private List<ServiceInfo> createServiceList() {
@@ -142,10 +167,11 @@ public class MainActivity extends Activity {
         return result;
     }
 
-    public void createObj(long minutes){
+    public void createObj(long minutes) {
         mGraphView.createObj(minutes);
     }
-    public void releaseObj(){
+
+    public void releaseObj() {
         mGraphView.releaseObj();
     }
 
@@ -153,7 +179,7 @@ public class MainActivity extends Activity {
         if (status) {
             tvServiceCircle.setBackgroundResource(R.drawable.circle_header_press);
             tvService.setTextColor(getResources().getColor(R.color.main_green));
-        }else {
+        } else {
             tvServiceCircle.setBackgroundResource(R.drawable.circle_header);
             tvService.setTextColor(getResources().getColor(R.color.main_color));
         }
@@ -163,7 +189,7 @@ public class MainActivity extends Activity {
         if (status) {
             tvStaffCircle.setBackgroundResource(R.drawable.circle_header_press);
             tvStaff.setTextColor(getResources().getColor(R.color.main_green));
-        }else {
+        } else {
             tvStaffCircle.setBackgroundResource(R.drawable.circle_header);
             tvStaff.setTextColor(getResources().getColor(R.color.main_color));
         }
@@ -173,7 +199,7 @@ public class MainActivity extends Activity {
         if (status) {
             tvTimeCircle.setBackgroundResource(R.drawable.circle_header_press);
             tvTime.setTextColor(getResources().getColor(R.color.main_green));
-        }else {
+        } else {
             tvTimeCircle.setBackgroundResource(R.drawable.circle_header);
             tvTime.setTextColor(getResources().getColor(R.color.main_color));
         }
@@ -222,5 +248,4 @@ public class MainActivity extends Activity {
 
         return super.onOptionsItemSelected(item);
     }
-
 }

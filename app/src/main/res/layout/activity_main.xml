@@ -1,11 +1,11 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              xmlns:tools="http://schemas.android.com/tools"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="@android:color/white"
-              android:orientation="vertical"
-              tools:context=".MainActivity">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -22,7 +22,7 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/nav_pre"/>
+                android:background="@drawable/nav_pre" />
         </LinearLayout>
 
         <LinearLayout
@@ -41,7 +41,7 @@
                 android:text="15"
                 android:textColor="@color/main_color"
                 android:textSize="30sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -50,7 +50,7 @@
                 android:padding="0dp"
                 android:text="May(Fri)"
                 android:textColor="@color/main_color"
-                android:textSize="20sp"/>
+                android:textSize="20sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -63,7 +63,7 @@
             <Button
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/nav_next"/>
+                android:background="@drawable/nav_next" />
         </LinearLayout>
     </LinearLayout>
 
@@ -75,7 +75,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1px"
-            android:background="@color/main_line"/>
+            android:background="@color/main_line" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -99,7 +99,7 @@
                     android:gravity="center"
                     android:text="1"
                     android:textColor="@android:color/white"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvService"
@@ -107,7 +107,7 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:text="Service"
-                    android:textColor="@color/main_color"/>
+                    android:textColor="@color/main_color" />
 
             </LinearLayout>
 
@@ -122,7 +122,7 @@
                 <ImageView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/icon"/>
+                    android:background="@drawable/icon" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -139,7 +139,7 @@
                         android:gravity="center"
                         android:text="2"
                         android:textColor="@android:color/white"
-                        android:textStyle="bold"/>
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvStaff"
@@ -147,7 +147,7 @@
                         android:layout_height="match_parent"
                         android:gravity="center"
                         android:text="Staff"
-                        android:textColor="@color/main_color"/>
+                        android:textColor="@color/main_color" />
                 </LinearLayout>
 
             </FrameLayout>
@@ -163,7 +163,7 @@
                 <ImageView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/icon"/>
+                    android:background="@drawable/icon" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -180,7 +180,7 @@
                         android:gravity="center"
                         android:text="1"
                         android:textColor="@android:color/white"
-                        android:textStyle="bold"/>
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvTime"
@@ -188,7 +188,7 @@
                         android:layout_height="match_parent"
                         android:gravity="center"
                         android:text="Time"
-                        android:textColor="@color/main_color"/>
+                        android:textColor="@color/main_color" />
                 </LinearLayout>
 
             </FrameLayout>
@@ -199,7 +199,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1px"
-            android:background="@color/main_line"/>
+            android:background="@color/main_line" />
     </LinearLayout>
 
     <LinearLayout
@@ -208,27 +208,27 @@
         android:layout_weight="0.8"
         android:orientation="horizontal">
 
-        <android.support.v7.widget.RecyclerView
+        <cvnhan.android.calendarsample.widget.ServiceView
             android:id="@+id/serviceView"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"/>
+            android:layout_weight="1" />
 
         <View
             android:layout_width="1px"
             android:layout_height="match_parent"
-            android:background="@android:color/darker_gray"/>
+            android:background="@android:color/darker_gray" />
 
         <android.support.v7.widget.RecyclerView
             android:id="@+id/staffView"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"/>
+            android:layout_weight="1" />
 
         <View
             android:layout_width="1px"
             android:layout_height="match_parent"
-            android:background="@android:color/darker_gray"/>
+            android:background="@android:color/darker_gray" />
 
         <cvnhan.android.calendarsample.widget.TimeView
             android:id="@+id/timeView"
@@ -240,7 +240,7 @@
             app:gridThickness="1dp"
             app:labelHeaderColSeparation="5dp"
             app:labelHeaderColTextColor="#d000"
-            app:labelHeaderColTextSize="8sp"/>
+            app:labelHeaderColTextSize="8sp" />
 
     </LinearLayout>
 </LinearLayout>

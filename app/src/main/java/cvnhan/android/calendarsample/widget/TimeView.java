@@ -24,7 +24,6 @@ import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.EdgeEffectCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -953,15 +952,15 @@ public class TimeView extends View {
             InvalidArea item = invalidAreas.get(i);
             if (item.last - item.first == 0) continue;
             if ((axisyf + h) > item.first && (axisyf + h) <= item.last) {
-                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 1=" + (1 + (i << 3)));
+//                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 1=" + (1 + (i << 3)));
                 return 1 + (i << 3);
             }
             if ((axisyf) > item.first && (axisyf) < item.last && (axisyf + h) > item.last) {
-                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 2" + (2 + (i << 3)));
+//                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 2" + (2 + (i << 3)));
                 return 2 + (i << 3);
             }
             if ((axisyf) <= item.first && (axisyf + h) >= item.last) {
-                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 3"  + (3 + (i << 3)));
+//                Log.e(TAG, " axisyf=" + axisyf + " item.first=" + item.first + " item.last=" + item.last + " axisyf+h=" + (axisyf + h) + " CASE 3"  + (3 + (i << 3)));
                 return 3 + (i << 3);
             }
 //            if ((axisyf) >= item.first && (axisyf + h) <= item.last) {
