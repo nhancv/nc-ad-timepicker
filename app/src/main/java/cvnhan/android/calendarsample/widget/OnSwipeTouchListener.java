@@ -1,6 +1,7 @@
 package cvnhan.android.calendarsample.widget;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
@@ -11,15 +12,19 @@ public class OnSwipeTouchListener implements OnTouchListener {
 
     private final GestureDetector gestureDetector;
 
-    public OnSwipeTouchListener (Context ctx){
+    public OnSwipeTouchListener(Context ctx) {
         gestureDetector = new GestureDetector(ctx, new GestureListener());
     }
-    public boolean onTouch(View v, MotionEvent event) {
-        return gestureDetector.onTouchEvent(event);
+
+    @Override
+    public boolean onTouch(View view, MotionEvent motionEvent) {
+        return gestureDetector.onTouchEvent(motionEvent);
     }
+
+
     private final class GestureListener extends SimpleOnGestureListener {
 
-//        private static final int SWIPE_THRESHOLD = 100;
+        //        private static final int SWIPE_THRESHOLD = 100;
         private static final int SWIPE_THRESHOLD = 50;
         private static final int SWIPE_VELOCITY_THRESHOLD = 100;
 
@@ -30,6 +35,7 @@ public class OnSwipeTouchListener implements OnTouchListener {
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            Log.e("onFling", "ok");
             boolean result = false;
             try {
                 float diffY = e2.getY() - e1.getY();
@@ -43,8 +49,7 @@ public class OnSwipeTouchListener implements OnTouchListener {
                         }
                     }
                     result = true;
-                }
-                else if (Math.abs(diffY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                } else if (Math.abs(diffY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
                     if (diffY > 0) {
                         onSwipeBottom();
                     } else {

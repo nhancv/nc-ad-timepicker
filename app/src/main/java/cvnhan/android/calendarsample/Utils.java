@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Shader;
+import android.util.Log;
 
 /**
  * Created by cvnhan on 08-Jun-15.
@@ -61,5 +62,8 @@ public class Utils {
         return bitmapView;
     }
 
+    public static void e(String msg){
+        Log.e("Utils", msg);
+    }
 
 }

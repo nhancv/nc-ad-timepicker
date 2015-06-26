@@ -3,6 +3,7 @@ package cvnhan.android.calendarsample;
 import android.app.Activity;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -52,7 +53,7 @@ public class MainActivity extends Activity {
     @InjectView(R.id.tvTime)
     public TextView tvTime;
 
-
+    SwipeRefreshLayout swiperefresh;
     private ServiceAdapter serviceAdapter;
     private StaffAdapter staffAdapter;
 
@@ -74,6 +75,17 @@ public class MainActivity extends Activity {
         serviceView.setAdapter(serviceAdapter);
         serviceView.getItemAnimator().setSupportsChangeAnimations(true);
         serviceView.setItemAnimator(new DefaultItemAnimator());
+        swiperefresh=(SwipeRefreshLayout) findViewById(R.id.swiperefresh);
+        swiperefresh.setColorSchemeColors(android.R.color.transparent);
+        swiperefresh.setProgressBackgroundColor(android.R.color.transparent);
+        swiperefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                swiperefresh.setRefreshing(false);
+                Toast.makeText(MainActivity.this, "swiperefresh", Toast.LENGTH_SHORT).show();
+            }
+        });
+
 
         llm = new LinearLayoutManager(this);
         llm.setOrientation(LinearLayoutManager.VERTICAL);
@@ -86,7 +98,7 @@ public class MainActivity extends Activity {
         mGraphView.injectMainActivity(this);
         mGraphView.setupTimeView(240, 79);
         mGraphView.initInvalidAreas();
-        mGraphView.zoomMaximum();
+//        mGraphView.zoomMaximum();
 
         serviceView.setOnTouchListener(new OnSwipeTouchListener(getApplicationContext()) {
             public void onSwipeTop() {
@@ -96,7 +108,7 @@ public class MainActivity extends Activity {
 
             public void onSwipeRight() {
                 Toast.makeText(MainActivity.this, "right", Toast.LENGTH_SHORT).show();
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(600, LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(500, LinearLayout.LayoutParams.WRAP_CONTENT);
                 serviceView.setLayoutParams(lp);
             }
 
