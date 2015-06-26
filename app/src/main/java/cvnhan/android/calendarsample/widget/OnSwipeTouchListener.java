@@ -1,7 +1,6 @@
 package cvnhan.android.calendarsample.widget;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.MotionEvent;
@@ -35,7 +34,6 @@ public class OnSwipeTouchListener implements OnTouchListener {
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-            Log.e("onFling", "ok");
             boolean result = false;
             try {
                 float diffY = e2.getY() - e1.getY();

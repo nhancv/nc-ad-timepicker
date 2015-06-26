@@ -208,7 +208,7 @@
         android:layout_weight="0.8"
         android:orientation="horizontal">
 
-        <cvnhan.android.calendarsample.widget.CustomSwipeToRefresh
+        <cvnhan.android.calendarsample.widget.SwipeDectectLayout
             android:id="@+id/swiperefresh"
             android:layout_width="0dp"
             android:layout_height="match_parent"
@@ -219,7 +219,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"/>
 
-        </cvnhan.android.calendarsample.widget.CustomSwipeToRefresh>
+        </cvnhan.android.calendarsample.widget.SwipeDectectLayout>
 
         <View
             android:layout_width="1px"

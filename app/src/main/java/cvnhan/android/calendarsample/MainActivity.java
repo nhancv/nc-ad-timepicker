@@ -3,7 +3,6 @@ package cvnhan.android.calendarsample;
 import android.app.Activity;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -23,7 +22,7 @@ import cvnhan.android.calendarsample.adapter.ServiceAdapter;
 import cvnhan.android.calendarsample.adapter.StaffAdapter;
 import cvnhan.android.calendarsample.model.ServiceInfo;
 import cvnhan.android.calendarsample.model.StaffInfo;
-import cvnhan.android.calendarsample.widget.OnSwipeTouchListener;
+import cvnhan.android.calendarsample.widget.SwipeDectectLayout;
 import cvnhan.android.calendarsample.widget.TimeView;
 
 
@@ -53,7 +52,7 @@ public class MainActivity extends Activity {
     @InjectView(R.id.tvTime)
     public TextView tvTime;
 
-    SwipeRefreshLayout swiperefresh;
+    SwipeDectectLayout swiperefresh;
     private ServiceAdapter serviceAdapter;
     private StaffAdapter staffAdapter;
 
@@ -75,14 +74,22 @@ public class MainActivity extends Activity {
         serviceView.setAdapter(serviceAdapter);
         serviceView.getItemAnimator().setSupportsChangeAnimations(true);
         serviceView.setItemAnimator(new DefaultItemAnimator());
-        swiperefresh=(SwipeRefreshLayout) findViewById(R.id.swiperefresh);
-        swiperefresh.setColorSchemeColors(android.R.color.transparent);
-        swiperefresh.setProgressBackgroundColor(android.R.color.transparent);
-        swiperefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+        swiperefresh=(SwipeDectectLayout) findViewById(R.id.swiperefresh);
+        swiperefresh.setOnRefreshListener(new SwipeDectectLayout.OnRefreshListener() {
             @Override
-            public void onRefresh() {
+            public void onLefttoRight() {
                 swiperefresh.setRefreshing(false);
-                Toast.makeText(MainActivity.this, "swiperefresh", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "swipe left to right hehe", Toast.LENGTH_SHORT).show();
+                LinearLayout.LayoutParams mExpandedParams = new LinearLayout.LayoutParams(
+                        swiperefresh.getWidth(), swiperefresh.getHeight(), 1.3f);
+                swiperefresh.setLayoutParams(mExpandedParams);
+            }
+
+            @Override
+            public void onRighttoLeft() {
+                swiperefresh.setRefreshing(false);
+                Toast.makeText(MainActivity.this, "swipe right to left hehe", Toast.LENGTH_SHORT).show();
+                swiperefresh.restoreOriginalLayout();
             }
         });
 
@@ -100,28 +107,6 @@ public class MainActivity extends Activity {
         mGraphView.initInvalidAreas();
 //        mGraphView.zoomMaximum();
 
-        serviceView.setOnTouchListener(new OnSwipeTouchListener(getApplicationContext()) {
-            public void onSwipeTop() {
-                Toast.makeText(MainActivity.this, "top", Toast.LENGTH_SHORT).show();
-
-            }
-
-            public void onSwipeRight() {
-                Toast.makeText(MainActivity.this, "right", Toast.LENGTH_SHORT).show();
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(500, LinearLayout.LayoutParams.WRAP_CONTENT);
-                serviceView.setLayoutParams(lp);
-            }
-
-            public void onSwipeLeft() {
-                Toast.makeText(MainActivity.this, "left", Toast.LENGTH_SHORT).show();
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(200, LinearLayout.LayoutParams.WRAP_CONTENT);
-                serviceView.setLayoutParams(lp);
-            }
-
-            public void onSwipeBottom() {
-                Toast.makeText(MainActivity.this, "bottom", Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
     private List<ServiceInfo> createServiceList() {
