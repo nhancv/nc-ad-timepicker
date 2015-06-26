@@ -8,7 +8,6 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -79,21 +78,14 @@ public class MainActivity extends Activity {
         swiperefresh.setOnRefreshListener(new SwipeDectectLayout.OnRefreshListener() {
             @Override
             public void onLefttoRight() {
-                swiperefresh.setRefreshing(false);
-                Toast.makeText(MainActivity.this, "swipe left to right hehe", Toast.LENGTH_SHORT).show();
-                LinearLayout.LayoutParams mExpandedParams = new LinearLayout.LayoutParams(
-                        swiperefresh.getWidth(), swiperefresh.getHeight(), 1.3f);
-                swiperefresh.setLayoutParams(mExpandedParams);
+                swiperefresh.expandWidth();
             }
 
             @Override
             public void onRighttoLeft() {
-                swiperefresh.setRefreshing(false);
-                Toast.makeText(MainActivity.this, "swipe right to left hehe", Toast.LENGTH_SHORT).show();
-                swiperefresh.restoreOriginalLayout();
+                swiperefresh.collapseWidth();
             }
         });
-
 
         llm = new LinearLayoutManager(this);
         llm.setOrientation(LinearLayoutManager.VERTICAL);

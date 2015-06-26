@@ -3,7 +3,6 @@ package cvnhan.android.calendarsample.widget;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Build;
-import android.os.Handler;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
@@ -15,12 +14,10 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LinearInterpolator;
 import android.view.animation.Transformation;
 import android.widget.AbsListView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Scroller;
 
 /**
  * Created by cvnhan on 26-Jun-15.
@@ -103,7 +100,7 @@ public class SwipeDectectLayout extends ViewGroup {
 
         this.mAnimateToCorrectPosition = new Animation() {
             public void applyTransformation(float interpolatedTime, Transformation t) {
-                int endTarget1= (int) SwipeDectectLayout.this.mSpinnerFinalOffset;
+                int endTarget1 = (int) SwipeDectectLayout.this.mSpinnerFinalOffset;
 
 
                 int targetTop1 = SwipeDectectLayout.this.mFrom + (int) ((float) (endTarget1 - SwipeDectectLayout.this.mFrom) * interpolatedTime);
@@ -427,7 +424,7 @@ public class SwipeDectectLayout extends ViewGroup {
 
                         float dragPercent = Math.min(1.0F, Math.abs(listener));
                         float extraOS = Math.abs(overscrollLeft) - this.mTotalDragDistance;
-                        float slingshotDist =  this.mSpinnerFinalOffset;
+                        float slingshotDist = this.mSpinnerFinalOffset;
                         float tensionSlingshotPercent = Math.max(0.0F, Math.min(extraOS, slingshotDist * 2.0F) / slingshotDist);
                         float tensionPercent = (float) ((double) (tensionSlingshotPercent / 4.0F) - Math.pow((double) (tensionSlingshotPercent / 4.0F), 2.0D)) * 2.0F;
                         float extraMove = slingshotDist * tensionPercent * 2.0F;
@@ -449,15 +446,6 @@ public class SwipeDectectLayout extends ViewGroup {
         } else {
             return false;
         }
-    }
-
-    public void restoreOriginalLayout() {
-        if (originalWidth == 0) originalWidth = 100;
-        if (mCompressedParams == null)
-            mCompressedParams = new LinearLayout.LayoutParams(
-                    originalWidth, LinearLayout.LayoutParams.MATCH_PARENT);
-        setLayoutParams(mCompressedParams);
-        requestLayout();
     }
 
     private void animateOffsetToCorrectPosition(int from, Animation.AnimationListener listener) {
@@ -514,10 +502,76 @@ public class SwipeDectectLayout extends ViewGroup {
 
     }
 
+    private void resizeWidthwidAnimation(int width) {
+        ResizeWidthAnimation anim = new ResizeWidthAnimation(this, width);
+        this.startAnimation(anim);
+    }
+
+    private void restoreOriginalLayout() {
+        if (originalWidth == 0) originalWidth = 100;
+        if (mCompressedParams == null)
+            mCompressedParams = new LinearLayout.LayoutParams(
+                    originalWidth, LinearLayout.LayoutParams.MATCH_PARENT);
+        setLayoutParams(mCompressedParams);
+    }
+
+    private void restoreOriginalLayoutwithAnimation() {
+        if (originalWidth == 0) originalWidth = 100;
+        ResizeWidthAnimation anim = new ResizeWidthAnimation(this, originalWidth);
+        this.startAnimation(anim);
+    }
+
+    public void expandWidth() {
+        setRefreshing(false);
+        int width = this.getResources().getDisplayMetrics().widthPixels;
+        resizeWidthwidAnimation(width * 8 / 9);
+    }
+
+    public void collapseWidth() {
+        setRefreshing(false);
+        restoreOriginalLayoutwithAnimation();
+    }
+
+
     public interface OnRefreshListener {
         void onLefttoRight();
 
         void onRighttoLeft();
+    }
+
+    public class ResizeWidthAnimation extends Animation {
+        private int mWidth;
+        private int mStartWidth;
+        private View mView;
+
+        public ResizeWidthAnimation(View view, int width) {
+            mView = view;
+            mWidth = width;
+            mStartWidth = view.getWidth();
+            setDuration(500);
+        }
+
+        @Override
+        protected void applyTransformation(float interpolatedTime, Transformation t) {
+            int newWidth = mStartWidth + (int) ((mWidth - mStartWidth) * interpolated(interpolatedTime));
+
+            mView.getLayoutParams().width = newWidth;
+            mView.requestLayout();
+        }
+
+        @Override
+        public void initialize(int width, int height, int parentWidth, int parentHeight) {
+            super.initialize(width, height, parentWidth, parentHeight);
+        }
+
+        @Override
+        public boolean willChangeBounds() {
+            return true;
+        }
+
+        private float interpolated(float t){
+            return (float)Math.pow(t-1, 5) + 1;
+        }
     }
 }
 
@@ -552,6 +606,6 @@ class CircleImageView extends ImageView {
         }
 
     }
-
-
 }
+
+
