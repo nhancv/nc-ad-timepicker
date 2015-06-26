@@ -1,7 +1,6 @@
 package cvnhan.android.calendarsample.widget;
 
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.os.Build;
 import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
@@ -13,10 +12,8 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
-import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Transformation;
 import android.widget.AbsListView;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 /**
@@ -24,13 +21,12 @@ import android.widget.LinearLayout;
  */
 public class SwipeDectectLayout extends ViewGroup {
 
-    private static final String LOG_TAG = SwipeDectectLayout.class.getSimpleName();
+    private final String LOG_TAG = SwipeDectectLayout.class.getSimpleName();
     private View mTarget;
     private SwipeDectectLayout.OnRefreshListener mListener;
     private boolean mRefreshing;
     private int mTouchSlop;
     private float mTotalDragDistance;
-    private int mMediumAnimationDuration;
     private int mCurrentTargetOffsetLeft;
     private boolean mOriginalOffsetCalculated;
     private float mInitialMotionX;
@@ -38,29 +34,14 @@ public class SwipeDectectLayout extends ViewGroup {
     private boolean mIsBeingDragged;
     private int mActivePointerId;
     private boolean mReturningToStart;
-    private final DecelerateInterpolator mDecelerateInterpolator;
-    private static final int[] LAYOUT_ATTRS = new int[]{16842766};
-    private CircleImageView mCircleView;
-    private int mCircleViewIndex;
     protected int mFrom;
     protected int mOriginalOffsetLeft;
-    private Animation mScaleAnimation;
-    private Animation mScaleDownAnimation;
     private float mSpinnerFinalOffset;
     private boolean mNotify;
-    private int mCircleWidth;
-    private int mCircleHeight;
-    private Animation.AnimationListener mSwipeListener;
     private int directionSwipe = 0; //0 left-right, 1 right-left;
-    private final Animation mAnimateToCorrectPosition;
-    private final Animation mAnimateToStartPosition;
 
     private LinearLayout.LayoutParams mCompressedParams = null;
     private int originalWidth = 0;
-
-    private void setColorViewAlpha(int targetAlpha) {
-        this.mCircleView.getBackground().setAlpha(targetAlpha);
-    }
 
     public SwipeDectectLayout(Context context) {
         this(context, (AttributeSet) null);
@@ -72,71 +53,15 @@ public class SwipeDectectLayout extends ViewGroup {
         this.mTotalDragDistance = -1.0F;
         this.mOriginalOffsetCalculated = false;
         this.mActivePointerId = -1;
-        this.mCircleViewIndex = -1;
-        this.mSwipeListener = new Animation.AnimationListener() {
-            public void onAnimationStart(Animation animation) {
-            }
 
-            public void onAnimationRepeat(Animation animation) {
-            }
-
-            public void onAnimationEnd(Animation animation) {
-                if (SwipeDectectLayout.this.mRefreshing) {
-                    if (SwipeDectectLayout.this.mNotify && SwipeDectectLayout.this.mListener != null) {
-                        if (directionSwipe == 0)
-                            SwipeDectectLayout.this.mListener.onLefttoRight();
-                        else
-                            SwipeDectectLayout.this.mListener.onRighttoLeft();
-                    }
-                } else {
-                    SwipeDectectLayout.this.mCircleView.setVisibility(View.GONE);
-                    SwipeDectectLayout.this.setTargetOffsetLeftAndRight(SwipeDectectLayout.this.mOriginalOffsetLeft - SwipeDectectLayout.this.mCurrentTargetOffsetLeft, true);
-
-                }
-
-                SwipeDectectLayout.this.mCurrentTargetOffsetLeft = SwipeDectectLayout.this.mCircleView.getLeft();
-            }
-        };
-
-        this.mAnimateToCorrectPosition = new Animation() {
-            public void applyTransformation(float interpolatedTime, Transformation t) {
-                int endTarget1 = (int) SwipeDectectLayout.this.mSpinnerFinalOffset;
-
-
-                int targetTop1 = SwipeDectectLayout.this.mFrom + (int) ((float) (endTarget1 - SwipeDectectLayout.this.mFrom) * interpolatedTime);
-                int offset = targetTop1 - SwipeDectectLayout.this.mCircleView.getLeft();
-                SwipeDectectLayout.this.setTargetOffsetLeftAndRight(offset, false);
-            }
-        };
-        this.mAnimateToStartPosition = new Animation() {
-            public void applyTransformation(float interpolatedTime, Transformation t) {
-                SwipeDectectLayout.this.moveToStart(interpolatedTime);
-            }
-        };
         this.mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
-        this.mMediumAnimationDuration = 0;
         this.setWillNotDraw(false);
-        this.mDecelerateInterpolator = new DecelerateInterpolator(1.0F);
-        TypedArray a = context.obtainStyledAttributes(attrs, LAYOUT_ATTRS);
-        this.setEnabled(a.getBoolean(0, true));
-        a.recycle();
-        DisplayMetrics metrics = this.getResources().getDisplayMetrics();
-        this.mCircleWidth = (int) (40.0F * metrics.density);
-        this.mCircleHeight = (int) (40.0F * metrics.density);
-        this.createProgressView();
         ViewCompat.setChildrenDrawingOrderEnabled(this, true);
+        DisplayMetrics metrics = this.getResources().getDisplayMetrics();
         this.mSpinnerFinalOffset = 50.0F * metrics.density;
         this.mTotalDragDistance = this.mSpinnerFinalOffset;
     }
 
-    protected int getChildDrawingOrder(int childCount, int i) {
-        return this.mCircleViewIndex < 0 ? i : (i == childCount - 1 ? this.mCircleViewIndex : (i >= this.mCircleViewIndex ? i + 1 : i));
-    }
-
-    private void createProgressView() {
-        this.mCircleView = new CircleImageView(this.getContext(), -328966, 20.0F);
-        this.addView(this.mCircleView);
-    }
 
     public void setOnRefreshListener(SwipeDectectLayout.OnRefreshListener listener) {
         this.mListener = listener;
@@ -152,34 +77,8 @@ public class SwipeDectectLayout extends ViewGroup {
             int endTarget1 = (int) this.mSpinnerFinalOffset;
             this.setTargetOffsetLeftAndRight(endTarget1 - this.mCurrentTargetOffsetLeft, true);
             this.mNotify = false;
-            this.startScaleUpAnimation(this.mSwipeListener);
         } else {
             this.setRefreshing(refreshing, false);
-        }
-
-    }
-
-    private void startScaleUpAnimation(Animation.AnimationListener listener) {
-        this.mScaleAnimation = new Animation() {
-            public void applyTransformation(float interpolatedTime, Transformation t) {
-                SwipeDectectLayout.this.setAnimationProgress(interpolatedTime);
-            }
-        };
-        this.mScaleAnimation.setDuration((long) this.mMediumAnimationDuration);
-        if (listener != null) {
-            this.mCircleView.setAnimationListener(listener);
-        }
-
-        this.mCircleView.clearAnimation();
-        this.mCircleView.startAnimation(this.mScaleAnimation);
-    }
-
-    private void setAnimationProgress(float progress) {
-        if (this.isAlphaUsedForScale()) {
-            this.setColorViewAlpha((int) (progress * 255.0F));
-        } else {
-            ViewCompat.setScaleX(this.mCircleView, progress);
-            ViewCompat.setScaleY(this.mCircleView, progress);
         }
 
     }
@@ -190,25 +89,22 @@ public class SwipeDectectLayout extends ViewGroup {
             this.ensureTarget();
             this.mRefreshing = refreshing;
             if (this.mRefreshing) {
-                this.animateOffsetToCorrectPosition(this.mCurrentTargetOffsetLeft, this.mSwipeListener);
-            } else {
-                this.startScaleDownAnimation(this.mSwipeListener);
+                if (SwipeDectectLayout.this.mRefreshing) {
+                    if (SwipeDectectLayout.this.mNotify && SwipeDectectLayout.this.mListener != null) {
+                        if (directionSwipe == 0)
+                            SwipeDectectLayout.this.mListener.onLefttoRight();
+                        else
+                            SwipeDectectLayout.this.mListener.onRighttoLeft();
+                    }
+                } else {
+                    SwipeDectectLayout.this.setTargetOffsetLeftAndRight(SwipeDectectLayout.this.mOriginalOffsetLeft - SwipeDectectLayout.this.mCurrentTargetOffsetLeft, true);
+
+                }
+                SwipeDectectLayout.this.mCurrentTargetOffsetLeft = 0;
             }
         }
-
     }
 
-    private void startScaleDownAnimation(Animation.AnimationListener listener) {
-        this.mScaleDownAnimation = new Animation() {
-            public void applyTransformation(float interpolatedTime, Transformation t) {
-                SwipeDectectLayout.this.setAnimationProgress(1.0F - interpolatedTime);
-            }
-        };
-        this.mScaleDownAnimation.setDuration(0);
-        this.mCircleView.setAnimationListener(listener);
-        this.mCircleView.clearAnimation();
-        this.mCircleView.startAnimation(this.mScaleDownAnimation);
-    }
 
     public boolean isRefreshing() {
         return this.mRefreshing;
@@ -218,10 +114,8 @@ public class SwipeDectectLayout extends ViewGroup {
         if (this.mTarget == null) {
             for (int i = 0; i < this.getChildCount(); ++i) {
                 View child = this.getChildAt(i);
-                if (!child.equals(this.mCircleView)) {
-                    this.mTarget = child;
-                    break;
-                }
+                this.mTarget = child;
+                break;
             }
         }
 
@@ -238,7 +132,6 @@ public class SwipeDectectLayout extends ViewGroup {
             if (this.mTarget == null) {
                 this.ensureTarget();
             }
-
             if (this.mTarget != null) {
                 View child = this.mTarget;
                 int childLeft = this.getPaddingLeft();
@@ -246,9 +139,6 @@ public class SwipeDectectLayout extends ViewGroup {
                 int childWidth = width - this.getPaddingLeft() - this.getPaddingRight();
                 int childHeight = height - this.getPaddingTop() - this.getPaddingBottom();
                 child.layout(childLeft, childTop, childLeft + childWidth, childTop + childHeight);
-                int circleWidth = this.mCircleView.getMeasuredWidth();
-                int circleHeight = this.mCircleView.getMeasuredHeight();
-                this.mCircleView.layout(-circleWidth / 2 + this.mCurrentTargetOffsetLeft, height / 2, circleWidth / 2 + this.mCurrentTargetOffsetLeft + circleHeight, height / 2 + circleHeight / 2);
             }
         }
     }
@@ -261,19 +151,10 @@ public class SwipeDectectLayout extends ViewGroup {
 
         if (this.mTarget != null) {
             this.mTarget.measure(MeasureSpec.makeMeasureSpec(this.getMeasuredWidth() - this.getPaddingLeft() - this.getPaddingRight(), 1073741824), MeasureSpec.makeMeasureSpec(this.getMeasuredHeight() - this.getPaddingTop() - this.getPaddingBottom(), 1073741824));
-            this.mCircleView.measure(MeasureSpec.makeMeasureSpec(this.mCircleWidth, 1073741824), MeasureSpec.makeMeasureSpec(this.mCircleHeight, 1073741824));
             if (!this.mOriginalOffsetCalculated) {
                 this.mOriginalOffsetCalculated = true;
-                this.mCurrentTargetOffsetLeft = this.mOriginalOffsetLeft = -this.mCircleView.getMeasuredWidth();
+                this.mCurrentTargetOffsetLeft = this.mOriginalOffsetLeft = 0;
             }
-            this.mCircleViewIndex = -1;
-            for (int index = 0; index < this.getChildCount(); ++index) {
-                if (this.getChildAt(index) == this.mCircleView) {
-                    this.mCircleViewIndex = index;
-                    break;
-                }
-            }
-
         }
     }
 
@@ -299,7 +180,7 @@ public class SwipeDectectLayout extends ViewGroup {
         if (this.isEnabled() && !this.mReturningToStart && !this.mRefreshing) {
             switch (action) {
                 case 0:
-                    this.setTargetOffsetLeftAndRight(this.mOriginalOffsetLeft - this.mCircleView.getLeft(), true);
+                    this.setTargetOffsetLeftAndRight(this.mOriginalOffsetLeft, true);
                     this.mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
                     this.mIsBeingDragged = false;
                     float initialDownX = this.getMotionEventX(ev, this.mActivePointerId);
@@ -362,9 +243,6 @@ public class SwipeDectectLayout extends ViewGroup {
         return index < 0 ? -1.0F : MotionEventCompat.getX(ev, index);
     }
 
-    public void requestDisallowInterceptTouchEvent(boolean b) {
-    }
-
     private boolean isAnimationRunning(Animation animation) {
         return animation != null && animation.hasStarted() && !animation.hasEnded();
     }
@@ -402,8 +280,7 @@ public class SwipeDectectLayout extends ViewGroup {
                         this.setRefreshing(true, true);
                     } else {
                         this.mRefreshing = false;
-                        Animation.AnimationListener listener1 = null;
-                        this.animateOffsetToStartPosition(this.mCurrentTargetOffsetLeft, listener1);
+                        this.mFrom = mCurrentTargetOffsetLeft;
                     }
                     this.mActivePointerId = -1;
                     return false;
@@ -421,7 +298,6 @@ public class SwipeDectectLayout extends ViewGroup {
                         if (listener < 0.0F) {
                             return false;
                         }
-
                         float dragPercent = Math.min(1.0F, Math.abs(listener));
                         float extraOS = Math.abs(overscrollLeft) - this.mTotalDragDistance;
                         float slingshotDist = this.mSpinnerFinalOffset;
@@ -448,44 +324,15 @@ public class SwipeDectectLayout extends ViewGroup {
         }
     }
 
-    private void animateOffsetToCorrectPosition(int from, Animation.AnimationListener listener) {
-        this.mFrom = from;
-        this.mAnimateToCorrectPosition.reset();
-        this.mAnimateToCorrectPosition.setDuration(0);
-        this.mAnimateToCorrectPosition.setInterpolator(this.mDecelerateInterpolator);
-        if (listener != null) {
-            this.mCircleView.setAnimationListener(listener);
-        }
-
-        this.mCircleView.clearAnimation();
-        this.mCircleView.startAnimation(this.mAnimateToCorrectPosition);
-    }
-
-    private void animateOffsetToStartPosition(int from, Animation.AnimationListener listener) {
-        this.mFrom = from;
-        this.mAnimateToStartPosition.reset();
-        this.mAnimateToStartPosition.setDuration(0L);
-        this.mAnimateToStartPosition.setInterpolator(this.mDecelerateInterpolator);
-        if (listener != null) {
-            this.mCircleView.setAnimationListener(listener);
-        }
-
-        this.mCircleView.clearAnimation();
-        this.mCircleView.startAnimation(this.mAnimateToStartPosition);
-
-    }
-
     private void moveToStart(float interpolatedTime) {
         int targetTop1 = this.mFrom + (int) ((float) (this.mOriginalOffsetLeft - this.mFrom) * interpolatedTime);
-        int offset = targetTop1 - this.mCircleView.getLeft();
+        int offset = targetTop1;
         this.setTargetOffsetLeftAndRight(offset, false);
     }
 
 
     private void setTargetOffsetLeftAndRight(int offset, boolean requiresUpdate) {
-        this.mCircleView.bringToFront();
-        this.mCircleView.offsetLeftAndRight(offset);
-        this.mCurrentTargetOffsetLeft = this.mCircleView.getLeft();
+        this.mCurrentTargetOffsetLeft = 0;
         if (requiresUpdate && Build.VERSION.SDK_INT < 11) {
             this.invalidate();
         }
@@ -534,6 +381,7 @@ public class SwipeDectectLayout extends ViewGroup {
 
 
     public interface OnRefreshListener {
+
         void onLefttoRight();
 
         void onRighttoLeft();
@@ -554,7 +402,6 @@ public class SwipeDectectLayout extends ViewGroup {
         @Override
         protected void applyTransformation(float interpolatedTime, Transformation t) {
             int newWidth = mStartWidth + (int) ((mWidth - mStartWidth) * interpolated(interpolatedTime));
-
             mView.getLayoutParams().width = newWidth;
             mView.requestLayout();
         }
@@ -569,43 +416,9 @@ public class SwipeDectectLayout extends ViewGroup {
             return true;
         }
 
-        private float interpolated(float t){
-            return (float)Math.pow(t-1, 5) + 1;
+        private float interpolated(float t) {
+            return (float) Math.pow(t - 1, 5) + 1;
         }
     }
 }
-
-class CircleImageView extends ImageView {
-    private Animation.AnimationListener mListener;
-
-    public CircleImageView(Context context, int color, float radius) {
-        super(context);
-        setVisibility(View.INVISIBLE);
-    }
-
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-    }
-
-    public void setAnimationListener(Animation.AnimationListener listener) {
-        this.mListener = listener;
-    }
-
-    public void onAnimationStart() {
-        super.onAnimationStart();
-        if (this.mListener != null) {
-            this.mListener.onAnimationStart(this.getAnimation());
-        }
-
-    }
-
-    public void onAnimationEnd() {
-        super.onAnimationEnd();
-        if (this.mListener != null) {
-            this.mListener.onAnimationEnd(this.getAnimation());
-        }
-
-    }
-}
-
 
