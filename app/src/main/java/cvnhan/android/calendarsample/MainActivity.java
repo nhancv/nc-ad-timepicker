@@ -75,6 +75,7 @@ public class MainActivity extends Activity {
         serviceView.getItemAnimator().setSupportsChangeAnimations(true);
         serviceView.setItemAnimator(new DefaultItemAnimator());
         swiperefresh=(SwipeDectectLayout) findViewById(R.id.swiperefresh);
+        swiperefresh.setDistanceToTriggerSync(30);
         swiperefresh.setOnRefreshListener(new SwipeDectectLayout.OnRefreshListener() {
             @Override
             public void onLefttoRight() {
