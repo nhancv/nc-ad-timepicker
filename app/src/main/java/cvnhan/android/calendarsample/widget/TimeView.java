@@ -1793,14 +1793,14 @@ class ObjectData {
         dataPaint.setColor(Color.parseColor(dataColor));
         dataPaint.setStyle(Paint.Style.FILL);
         dataPaint.setAntiAlias(true);
-        dataPaint.setAlpha(90);
+        dataPaint.setAlpha(160);
 
         movePaint = new Paint();
         movePaint.setStrokeWidth(dataThickness * 2);
         movePaint.setColor(Color.parseColor(dataColor));
         movePaint.setStyle(Paint.Style.FILL_AND_STROKE);
         movePaint.setAntiAlias(true);
-        movePaint.setAlpha(100);
+        movePaint.setAlpha(150);
         movePaint.setStrokeJoin(Paint.Join.ROUND);
         timeView.setLayerType(View.LAYER_TYPE_SOFTWARE, movePaint);
         movePaint.setShadowLayer(5.0f, -5.0f, 5.0f, Color.BLACK);
